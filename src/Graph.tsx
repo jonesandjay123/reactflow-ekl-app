@@ -4,14 +4,16 @@ import React, { useEffect, useState } from "react";
 import ReactFlow, { ReactFlowProvider, Background } from "reactflow";
 import ELK from "elkjs/lib/elk.bundled.js";
 import "reactflow/dist/style.css";
-import { jsonData } from "./data"; // 或者 './data'
-import CustomNode from "./CustomNode"; // 引入自定义节点组件
+import { jsonData } from "./data2";
+import CustomNode from "./CustomNode";
+import CustomEdge from "./CustomEdge"; // 导入自定义边组件
 
-import { parseJsonData, transformElkGraphToReactFlow } from "./graphUtils"; // 导入函数
+import { parseJsonData, transformElkGraphToReactFlow } from "./graphUtils";
 
 const elk = new ELK();
 
 const nodeTypes = { custom: CustomNode };
+const edgeTypes = { customEdge: CustomEdge };
 
 const Graph: React.FC = () => {
   const [elements, setElements] = useState<{ nodes: any[]; edges: any[] }>({
@@ -25,9 +27,9 @@ const Graph: React.FC = () => {
     setExpandedNodes((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(nodeId)) {
-        newSet.delete(nodeId); // 已展开，折叠节点
+        newSet.delete(nodeId);
       } else {
-        newSet.add(nodeId); // 未展开，展开节点
+        newSet.add(nodeId);
       }
       return newSet;
     });
@@ -52,7 +54,7 @@ const Graph: React.FC = () => {
     }
 
     buildGraph();
-  }, [expandedNodes]); // 当展开状态改变时，重新构建图形
+  }, [expandedNodes]);
 
   return (
     <ReactFlowProvider>
@@ -60,7 +62,8 @@ const Graph: React.FC = () => {
         <ReactFlow
           nodes={elements.nodes}
           edges={elements.edges}
-          nodeTypes={nodeTypes} // 指定节点类型
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           fitView
         >
           <Background />
