@@ -10,8 +10,6 @@ export interface CustomNodeData {
   style?: {
     backgroundColor?: string;
     borderRadius?: string;
-    width?: string;
-    height?: string;
   };
 }
 
@@ -38,8 +36,9 @@ const CustomNode: React.FC<CustomNodeProps> = ({ id, data }) => {
         border: "1px solid #000",
         textAlign: "center",
         borderRadius: data.style?.borderRadius || "0px",
-        width: data.style?.width,
-        height: data.style?.height,
+        width: "100%",
+        height: "100%",
+        boxSizing: "border-box",
       }}
     >
       {label}
@@ -48,8 +47,8 @@ const CustomNode: React.FC<CustomNodeProps> = ({ id, data }) => {
           (Expand/Collapse)
         </div>
       )}
-      <Handle type="target" position={Position.Top} />
-      <Handle type="source" position={Position.Bottom} />
+      <Handle type="target" position={Position.Left} />
+      <Handle type="source" position={Position.Right} />
     </div>
   );
 };
