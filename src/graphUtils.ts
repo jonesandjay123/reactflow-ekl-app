@@ -35,17 +35,14 @@ export function parseJsonData(
   expandedNodes: Set<string>
 ): ElkGraph {
   const nodeMap = new Map<string, ElkNode>();
-  const nodeParentMap = new Map<string, string | undefined>();
-
-  // 用于生成唯一的边 ID
-  let edgeIdCounter = 0;
+  const parentMap = new Map<string, string | null>();
+  const includedNodeIds = new Set<string>();
 
   function processNodes(
     nodes: JsonNode[],
-    parentId?: string
-  ): { nodes: ElkNode[]; edges: ElkExtendedEdge[] } {
+    parentId: string | null = null
+  ): ElkNode[] {
     const resultNodes: ElkNode[] = [];
-    const resultEdges: ElkExtendedEdge[] = [];
 
     nodes.forEach((node: JsonNode) => {
       if (!node.id) {
@@ -53,10 +50,14 @@ export function parseJsonData(
         return;
       }
 
+      parentMap.set(node.id, parentId);
+
       const styleMatch = node.value.style
         ? node.value.style.match(/fill:(#[0-9a-fA-F]{3,6})/)
         : null;
       const backgroundColor = styleMatch ? styleMatch[1] : "#fff";
+
+      const isExpanded = expandedNodes.has(node.id);
 
       const elkNode: ElkNode = {
         id: node.id,
@@ -66,78 +67,75 @@ export function parseJsonData(
         properties: {
           backgroundColor: backgroundColor,
           borderRadius: node.value.rx ? `${node.value.rx}px` : "0px",
-          isParent: false,
-          isExpanded: expandedNodes.has(node.id),
+          isParent: !!node.children && node.children.length > 0,
+          isExpanded: isExpanded,
         },
       };
 
       nodeMap.set(node.id, elkNode);
-      nodeParentMap.set(node.id, parentId); // 保存节点的父节点
 
-      // 检查是否有子节点
-      if (node.children && node.children.length > 0) {
-        elkNode.properties.isParent = true;
+      includedNodeIds.add(node.id);
 
-        if (expandedNodes.has(node.id)) {
-          const childResult = processNodes(node.children, node.id);
-          elkNode.children = childResult.nodes;
-          elkNode.edges = childResult.edges;
+      if (elkNode.properties.isParent && isExpanded) {
+        // Node is expanded, process its children
+        if (node.children && node.children.length > 0) {
+          elkNode.children = processNodes(node.children, node.id);
         }
       }
+      // If the node is collapsed, we don't process its children
 
       resultNodes.push(elkNode);
     });
 
-    // 收集当前层次结构中涉及的边
-    jsonData.edges.forEach((edge: JsonEdge) => {
-      const sourceNode = nodeMap.get(edge.source_id);
-      const targetNode = nodeMap.get(edge.target_id);
-
-      if (sourceNode && targetNode) {
-        // 边的源和目标节点都在当前层级，直接添加
-        resultEdges.push({
-          id: `edge-${edgeIdCounter++}`, // 使用计数器生成唯一的边 ID
-          sources: [edge.source_id],
-          targets: [edge.target_id],
-        });
-      } else if (sourceNode || targetNode) {
-        // 边的源或目标节点缺失，尝试调整到父节点
-        let adjustedSource = edge.source_id;
-        let adjustedTarget = edge.target_id;
-
-        if (!sourceNode) {
-          const parentSourceId = nodeParentMap.get(edge.source_id);
-          if (parentSourceId) {
-            adjustedSource = parentSourceId;
-          } else {
-            // 无法找到有效的源节点，跳过该边
-            return;
-          }
-        }
-
-        if (!targetNode) {
-          const parentTargetId = nodeParentMap.get(edge.target_id);
-          if (parentTargetId) {
-            adjustedTarget = parentTargetId;
-          } else {
-            // 无法找到有效的目标节点，跳过该边
-            return;
-          }
-        }
-
-        resultEdges.push({
-          id: `edge-${edgeIdCounter++}`, // 使用计数器生成唯一的边 ID
-          sources: [adjustedSource],
-          targets: [adjustedTarget],
-        });
-      }
-      // 如果源和目标节点都缺失，跳过该边
-    });
-
-    return { nodes: resultNodes, edges: resultEdges };
+    return resultNodes;
   }
 
-  const result = processNodes(jsonData.nodes.children);
+  // Build parentMap and includedNodeIds
+  const nodes = processNodes(jsonData.nodes.children);
+
+  // Now process edges
+  const resultEdges: ElkExtendedEdge[] = [];
+
+  jsonData.edges.forEach((edge: JsonEdge) => {
+    let sourceId = adjustNodeId(edge.source_id);
+    let targetId = adjustNodeId(edge.target_id);
+
+    if (!sourceId || !targetId) {
+      // Cannot include this edge, as source or target node does not exist
+      return;
+    }
+
+    if (sourceId === targetId) {
+      // Avoid self-loop
+      return;
+    }
+
+    resultEdges.push({
+      id: `edge-${sourceId}-${targetId}`,
+      sources: [sourceId],
+      targets: [targetId],
+    });
+  });
+
+  function adjustNodeId(nodeId: string): string | null {
+    if (includedNodeIds.has(nodeId)) {
+      return nodeId;
+    }
+    // Node is not included, find its nearest included ancestor
+    let currentId = nodeId;
+    while (currentId) {
+      const parentId = parentMap.get(currentId);
+      if (!parentId) {
+        // Reached root and didn't find an included ancestor
+        return null;
+      }
+      if (includedNodeIds.has(parentId)) {
+        return parentId;
+      }
+      currentId = parentId;
+    }
+    return null;
+  }
 
   const elkGraph: ElkGraph = {
     id: "root",
@@ -148,11 +146,30 @@ export function parseJsonData(
       "elk.spacing.nodeNode": "50",
       "elk.layered.spacing.nodeNodeBetweenLayers": "50",
     },
-    children: result.nodes,
-    edges: result.edges,
+    children: nodes,
+    edges: resultEdges,
   };
 
   return elkGraph;
+}
+
+// 辅助函数，查找节点的可见父节点
+function findVisibleParent(nodeId: string, nodes: JsonNode[]): string | null {
+  for (const node of nodes) {
+    if (node.id === nodeId) {
+      return null; // 该节点本身已在可见节点集合中，但被折叠了
+    }
+    if (node.children && node.children.length > 0) {
+      if (node.children.some((child) => child.id === nodeId)) {
+        return node.id; // 找到父节点
+      }
+      const parentId = findVisibleParent(nodeId, node.children);
+      if (parentId) {
+        return parentId;
+      }
+    }
+  }
+  return null;
 }
 
 export function transformElkGraphToReactFlow(
@@ -167,12 +184,24 @@ export function transformElkGraphToReactFlow(
     parentPosition = { x: 0, y: 0 },
     parentId?: string
   ) {
-    // 忽略根节点
+    // Ignore root node
     if (elkNode.id === "root") {
-      // 递归遍历子节点
+      // Recursively traverse child nodes
       if (elkNode.children && elkNode.children.length > 0) {
         elkNode.children.forEach((child: any) => {
           traverseElkNode(child, parentPosition, undefined);
+        });
+      }
+
+      // Collect edges at root level
+      if (elkNode.edges) {
+        elkNode.edges.forEach((elkEdge: any) => {
+          edges.push({
+            id: elkEdge.id,
+            source: elkEdge.sources[0],
+            target: elkEdge.targets[0],
+            type: "default",
+          });
         });
       }
       return;
@@ -213,46 +242,27 @@ export function transformElkGraphToReactFlow(
 
     nodes.push(node);
 
-    // 处理节点的边
-    if (elkNode.edges) {
-      elkNode.edges.forEach((elkEdge: any) => {
-        // 调整边的控制点位置
-        const sections = elkEdge.sections || [];
-        sections.forEach((section: any) => {
-          if (section.startPoint) {
-            section.startPoint.x += parentPosition.x;
-            section.startPoint.y += parentPosition.y;
-          }
-          if (section.endPoint) {
-            section.endPoint.x += parentPosition.x;
-            section.endPoint.y += parentPosition.y;
-          }
-          if (section.bendPoints) {
-            section.bendPoints = section.bendPoints.map((point: any) => ({
-              x: point.x + parentPosition.x,
-              y: point.y + parentPosition.y,
-            }));
-          }
-        });
-
-        edges.push({
-          id: elkEdge.id,
-          source: elkEdge.sources[0],
-          target: elkEdge.targets[0],
-          type: "default", // 使用 React Flow 默认的边类型
-        });
-      });
-    }
-
-    // 递归遍历子节点
+    // Recursively traverse child nodes
     if (elkNode.children && elkNode.children.length > 0) {
       elkNode.children.forEach((child: any) => {
         traverseElkNode(child, position, id);
       });
     }
+
+    // Collect edges at this node level
+    if (elkNode.edges) {
+      elkNode.edges.forEach((elkEdge: any) => {
+        edges.push({
+          id: elkEdge.id,
+          source: elkEdge.sources[0],
+          target: elkEdge.targets[0],
+          type: "default",
+        });
+      });
+    }
   }
 
-  // 开始遍历 ELK 图
+  // Start traversing from the root
   traverseElkNode(elkGraph);
 
   return { nodes, edges };
