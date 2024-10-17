@@ -1,30 +1,45 @@
-// src/Graph.tsx
-
 import React, { useEffect, useState } from "react";
 import ReactFlow, { ReactFlowProvider, Background } from "reactflow";
 import ELK from "elkjs/lib/elk.bundled.js";
 import "reactflow/dist/style.css";
 import { jsonData } from "./data";
+import CustomNode from "./CustomNode"; // 引入自定义节点组件
 
 const elk = new ELK();
+
+const nodeTypes = { custom: CustomNode }; // 注册自定义节点类型
 
 const Graph: React.FC = () => {
   const [elements, setElements] = useState<{ nodes: any[]; edges: any[] }>({
     nodes: [],
     edges: [],
   });
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+
+  // 双击事件处理函数
+  const onNodeDoubleClick = (nodeId: string) => {
+    setExpandedNodes((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(nodeId)) {
+        newSet.delete(nodeId); // 已展开，折叠节点
+      } else {
+        newSet.add(nodeId); // 未展开，展开节点
+      }
+      return newSet;
+    });
+  };
 
   useEffect(() => {
     async function buildGraph() {
-      // 解析 JSON 数据并构建 ELK 图形结构
-      const elkGraph = parseJsonData(jsonData);
+      const elkGraph = parseJsonData(jsonData, expandedNodes);
 
-      // 使用 ELK 计算布局
       try {
         const elkLayout = await elk.layout(elkGraph);
 
-        // 将 ELK 布局结果转换为 React Flow 的节点和边
-        const { nodes, edges } = transformElkGraphToReactFlow(elkLayout);
+        const { nodes, edges } = transformElkGraphToReactFlow(
+          elkLayout,
+          onNodeDoubleClick
+        );
 
         setElements({ nodes, edges });
       } catch (error) {
@@ -33,12 +48,17 @@ const Graph: React.FC = () => {
     }
 
     buildGraph();
-  }, []);
+  }, [expandedNodes]); // 当展开状态改变时，重新构建图形
 
   return (
     <ReactFlowProvider>
       <div style={{ width: "100%", height: "100vh" }}>
-        <ReactFlow nodes={elements.nodes} edges={elements.edges} fitView>
+        <ReactFlow
+          nodes={elements.nodes}
+          edges={elements.edges}
+          nodeTypes={nodeTypes} // 指定节点类型
+          fitView
+        >
           <Background />
         </ReactFlow>
       </div>
@@ -48,9 +68,9 @@ const Graph: React.FC = () => {
 
 export default Graph;
 
-// 解析 JSON 数据并构建 ELK 图形结构的函数
-function parseJsonData(jsonData: any): any {
-  const nodeMap = new Map<string, any>(); // 用于存储节点，便于查找
+// 修改 parseJsonData 函数
+function parseJsonData(jsonData: any, expandedNodes: Set<string>): any {
+  const nodeMap = new Map<string, any>();
   const elkNodes: any[] = [];
   const elkEdges: any[] = [];
 
@@ -58,7 +78,6 @@ function parseJsonData(jsonData: any): any {
     const resultNodes: any[] = [];
 
     nodes.forEach((node: any) => {
-      // 如果节点的 ID 为 null，则跳过或为其生成唯一 ID
       if (!node.id) {
         console.warn("Node with null or undefined id found and skipped:", node);
         return;
@@ -77,17 +96,21 @@ function parseJsonData(jsonData: any): any {
         properties: {
           backgroundColor: backgroundColor,
           borderRadius: node.value.rx ? `${node.value.rx}px` : "0px",
+          isParent: false, // 默认不是父节点
         },
-        children: [], // 初始化 children 数组
       };
 
-      // 将节点存储在 Map 中
       nodeMap.set(node.id, elkNode);
 
-      // 如果有子节点，递归处理
+      // 检查是否有子节点
       if (node.children && node.children.length > 0) {
-        const childNodes = processNodes(node.children, node.id);
-        elkNode.children = childNodes;
+        elkNode.properties.isParent = true; // 标记为父节点
+
+        // 如果节点已展开，处理子节点
+        if (expandedNodes.has(node.id)) {
+          const childNodes = processNodes(node.children, node.id);
+          elkNode.children = childNodes;
+        }
       }
 
       resultNodes.push(elkNode);
@@ -96,13 +119,11 @@ function parseJsonData(jsonData: any): any {
     return resultNodes;
   }
 
-  // 开始处理节点
   const topLevelNodes = processNodes(jsonData.nodes.children);
   elkNodes.push(...topLevelNodes);
 
   // 处理边
   jsonData.edges.forEach((edge: any) => {
-    // 验证 source_id 和 target_id 是否存在
     if (nodeMap.has(edge.source_id) && nodeMap.has(edge.target_id)) {
       elkEdges.push({
         id: `${edge.source_id}-${edge.target_id}`,
@@ -129,28 +150,34 @@ function parseJsonData(jsonData: any): any {
   return elkGraph;
 }
 
-// 将 ELK 布局结果转换为 React Flow 格式的函数
-function transformElkGraphToReactFlow(elkGraph: any) {
+// 修改 transformElkGraphToReactFlow 函数
+function transformElkGraphToReactFlow(
+  elkGraph: any,
+  onNodeDoubleClick: (nodeId: string) => void
+) {
   const nodes: any[] = [];
   const edges: any[] = [];
 
   function traverseElkNode(elkNode: any, parentId?: string) {
     const { id, x, y, width, height, labels, properties } = elkNode;
     const position = { x: x || 0, y: y || 0 };
-    const data = { label: labels && labels[0] ? labels[0].text : "" };
-    const style = {
-      width,
-      height,
-      backgroundColor: properties?.backgroundColor || "#fff",
-      borderRadius: properties?.borderRadius || "0px",
+    const data = {
+      label: labels && labels[0] ? labels[0].text : "",
+      isParent: properties?.isParent || false,
+      onDoubleClick: onNodeDoubleClick,
+      style: {
+        backgroundColor: properties?.backgroundColor || "#fff",
+        borderRadius: properties?.borderRadius || "0px",
+        width,
+        height,
+      },
     };
 
     const node: any = {
       id,
       position,
       data,
-      style,
-      type: "default",
+      type: "custom", // 使用自定义节点类型
     };
 
     if (parentId) {
@@ -173,7 +200,6 @@ function transformElkGraphToReactFlow(elkGraph: any) {
     });
   }
 
-  // 处理边
   if (elkGraph.edges) {
     elkGraph.edges.forEach((elkEdge: any) => {
       edges.push({
