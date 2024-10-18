@@ -43,6 +43,27 @@ export function getTextWidth(text: string, font: string): number {
   return text.length * 10;
 }
 
+export function formatEdge(edge: JsonEdge, font: string): ElkExtendedEdge {
+  const label = edge.label || "";
+  const labelWidth = getTextWidth(label, font);
+
+  return {
+    id: `${edge.source_id}-${edge.target_id}`,
+    sources: [edge.source_id],
+    targets: [edge.target_id],
+    labels: label
+      ? [
+          {
+            id: `label-${edge.source_id}-${edge.target_id}`,
+            text: label,
+            width: labelWidth,
+            height: 16,
+          },
+        ]
+      : [],
+  };
+}
+
 export function parseJsonData(
   jsonData: any,
   expandedNodes: Set<string>
@@ -180,28 +201,12 @@ export function parseJsonData(
     return resultNodes;
   }
 
-  function formatEdge(edge: JsonEdge, font: string): ElkExtendedEdge {
-    const label = edge.label || "";
-    const labelWidth = getTextWidth(label, font);
+  // 移除 `id` 为 null 的节点
+  const nodesData = jsonData.nodes.children.filter(
+    (node: JsonNode) => node.id !== null && node.id !== undefined
+  );
 
-    return {
-      id: `${edge.source_id}-${edge.target_id}`,
-      sources: [edge.source_id],
-      targets: [edge.target_id],
-      labels: label
-        ? [
-            {
-              id: `label-${edge.source_id}-${edge.target_id}`,
-              text: label,
-              width: labelWidth,
-              height: 16,
-            },
-          ]
-        : [],
-    };
-  }
-
-  const nodes = processNodes(jsonData.nodes.children);
+  const nodes = processNodes(nodesData);
 
   const edges = filteredEdges.map((e) => formatEdge(e, font));
 
@@ -229,17 +234,13 @@ export function transformElkGraphToReactFlow(
   const nodes: any[] = [];
   const edges: any[] = [];
 
-  function traverseElkNode(
-    elkNode: any,
-    parentPosition = { x: 0, y: 0 },
-    parentId?: string
-  ) {
+  function traverseElkNode(elkNode: any, parentId?: string) {
     // Ignore root node
     if (elkNode.id === "root") {
       // Recursively traverse child nodes
       if (elkNode.children && elkNode.children.length > 0) {
         elkNode.children.forEach((child: any) => {
-          traverseElkNode(child, parentPosition, undefined);
+          traverseElkNode(child, undefined);
         });
       }
 
@@ -254,6 +255,9 @@ export function transformElkGraphToReactFlow(
             data: {
               label: elkEdge.labels?.[0]?.text || "",
             },
+            style: {
+              zIndex: 10,
+            },
           });
         });
       }
@@ -262,8 +266,8 @@ export function transformElkGraphToReactFlow(
 
     const { id, x, y, width, height, labels, properties } = elkNode;
     const position = {
-      x: (x || 0) + parentPosition.x,
-      y: (y || 0) + parentPosition.y,
+      x: x || 0,
+      y: y || 0,
     };
     const data = {
       label: labels && labels[0] ? labels[0].text : "",
@@ -299,7 +303,7 @@ export function transformElkGraphToReactFlow(
     // Recursively traverse child nodes
     if (elkNode.children && elkNode.children.length > 0) {
       elkNode.children.forEach((child: any) => {
-        traverseElkNode(child, position, id);
+        traverseElkNode(child, id);
       });
     }
 
@@ -313,6 +317,9 @@ export function transformElkGraphToReactFlow(
           type: "custom",
           data: {
             label: elkEdge.labels?.[0]?.text || "",
+          },
+          style: {
+            zIndex: 10,
           },
         });
       });
