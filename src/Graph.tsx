@@ -9,11 +9,17 @@ import CustomNode from "./CustomNode";
 import CustomEdge from "./CustomEdge"; // 导入自定义边组件
 
 import { parseJsonData, transformElkGraphToReactFlow } from "./graphUtils";
+import styled, { ThemeProvider } from "styled-components";
+import { darkTheme } from "./theme";
 
 const elk = new ELK();
 
 const nodeTypes = { custom: CustomNode };
 const edgeTypes = { customEdge: CustomEdge };
+
+const ReactFlowStyled = styled(ReactFlow)`
+  background-color: ${(props) => props.theme.bg};
+`;
 
 const Graph: React.FC = () => {
   const [elements, setElements] = useState<{ nodes: any[]; edges: any[] }>({
@@ -57,19 +63,21 @@ const Graph: React.FC = () => {
   }, [expandedNodes]);
 
   return (
-    <ReactFlowProvider>
-      <div style={{ width: "100%", height: "100vh" }}>
-        <ReactFlow
-          nodes={elements.nodes}
-          edges={elements.edges}
-          nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
-          fitView
-        >
-          <Background />
-        </ReactFlow>
-      </div>
-    </ReactFlowProvider>
+    <ThemeProvider theme={darkTheme}>
+      <ReactFlowProvider>
+        <div style={{ width: "100%", height: "100vh" }}>
+          <ReactFlowStyled
+            nodes={elements.nodes}
+            edges={elements.edges}
+            nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            fitView
+          >
+            <Background />
+          </ReactFlowStyled>
+        </div>
+      </ReactFlowProvider>
+    </ThemeProvider>
   );
 };
 
