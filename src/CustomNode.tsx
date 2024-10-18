@@ -10,7 +10,6 @@ export interface CustomNodeData {
   style?: {
     backgroundColor?: string;
     borderRadius?: string;
-    overflow?: string;
   };
 }
 
@@ -23,7 +22,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({ id, data }) => {
   const { label, isParent, onDoubleClick } = data;
 
   const handleDoubleClick = () => {
-    if (isParent) {
+    if (onDoubleClick) {
       onDoubleClick(id);
     }
   };
@@ -40,17 +39,19 @@ const CustomNode: React.FC<CustomNodeProps> = ({ id, data }) => {
         width: "100%",
         height: "100%",
         boxSizing: "border-box",
-        overflow: data.style?.overflow || "hidden",
       }}
     >
       {label}
-      {isParent && (
-        <div style={{ fontSize: "0.7em", color: "#888" }}>
-          (Expand/Collapse)
-        </div>
-      )}
-      <Handle type="target" position={Position.Left} />
-      <Handle type="source" position={Position.Right} />
+      <Handle
+        type="target"
+        position={Position.Left}
+        style={{ visibility: "hidden" }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        style={{ visibility: "hidden" }}
+      />
     </div>
   );
 };

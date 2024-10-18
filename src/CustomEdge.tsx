@@ -3,7 +3,7 @@
 import React from "react";
 import { EdgeProps, getBezierPath } from "reactflow";
 
-const CustomEdge: React.FC<EdgeProps> = (props) => {
+const CustomEdge = (props: EdgeProps) => {
   const {
     id,
     sourceX,
@@ -31,6 +31,8 @@ const CustomEdge: React.FC<EdgeProps> = (props) => {
       style={{
         stroke: "gray",
         strokeWidth: 2,
+        zIndex: 20,
+        pointerEvents: "none",
         ...style,
       }}
       className="react-flow__edge-path"
