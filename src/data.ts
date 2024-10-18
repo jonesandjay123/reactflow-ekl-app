@@ -10,11 +10,15 @@ export const jsonData = {
     },
     {
       source_id: "rmt_dags.task_getrmt_DVFParam",
+      target_id: "rmt_dags.task_trigger_rmt_dvf_job",
+    },
+    {
+      source_id: "rmt_dags.task_getrmtmarkerparm",
       target_id: "rmt_dags.task_getrmt_DVFParam",
     },
     {
       source_id: "rmt_dags.task_rmt_file_watcher",
-      target_id: "rmt_dags.task_trigger_rmt_dvf_job",
+      target_id: "rmt_dags.task_getrmtmarkerparm",
     },
     {
       source_id: "rmt_dags.task_trigger_aggr_load_dag",
@@ -22,6 +26,10 @@ export const jsonData = {
     },
     {
       source_id: "rmt_dags.task_trigger_rmt_dvf_job",
+      target_id: "rmt_dags.task_check_rmt_dvf_status",
+    },
+    {
+      source_id: "rmt_dags.upstream_join_id",
       target_id: "rmt_dags.task_rmt_file_watcher",
     },
     {
@@ -34,39 +42,69 @@ export const jsonData = {
         "sens_stress_esg_mas_mgr.task_fact_acct_bmk_sec_stress_rmt_aggr1_watcher",
     },
     {
+      source_id: "sens_stress_esg_mas_mgr.task_branching_esg_run",
+      target_id:
+        "sens_stress_esg_mas_mgr.task_trigger_esg_mas_mgr_weekly_dataload",
+    },
+    {
       source_id: "sens_stress_esg_mas_mgr.task_check_esg_predvf_status",
-      target_id: "sens_stress_esg_mas_mgr.task_trigger_esg_predvf_job",
+      target_id: "sens_stress_esg_mas_mgr.task_branching_esg_run",
+    },
+    {
+      source_id: "sens_stress_esg_mas_mgr.task_esg_load_success",
+      target_id: "sens_stress_esg_mas_mgr.downstream_join_id",
     },
     {
       source_id: "sens_stress_esg_mas_mgr.task_esg_preDVFParam",
+      target_id: "sens_stress_esg_mas_mgr.task_trigger_esg_predvf_job",
+    },
+    {
+      source_id: "sens_stress_esg_mas_mgr.task_esg_summary_rmt_watcher",
       target_id: "sens_stress_esg_mas_mgr.task_getesg_markerparm",
     },
     {
       source_id:
-        "sens_stress_esg_mas_mgr.task_fact_act_bmk_sec_stress_rmt_aggr_watcher",
-      target_id: "sens_stress_esg_mas_mgr.task_check_esg_predvf_status",
+        "sens_stress_esg_mas_mgr.task_fact_acct_bmk_sec_stress_rmt_aggr1_watcher",
+      target_id:
+        "sens_stress_esg_mas_mgr.task_trigger_esg_mas_mgr_weekend_dataload",
     },
     {
       source_id: "sens_stress_esg_mas_mgr.task_getesg_markerparm",
-      target_id: "sens_stress_esg_mas_mgr.task_trigger_esg_predvf_job",
+      target_id: "sens_stress_esg_mas_mgr.task_esg_preDVFParam",
     },
     {
-      source_id: "sens_stress_esg_mas_mgr.task_load_success",
-      target_id: "sens_stress_esg_mas_mgr.downstream_join_id",
-    },
-    {
-      source_id: "sens_stress_esg_mas_mgr.task_esg_summary_rmt_watcher",
-      target_id:
-        "sens_stress_esg_mas_mgr.task_trigger_esg_mas_mgr.weekend_dataload",
+      source_id: "sens_stress_esg_mas_mgr.task_mas_global_data_watcher",
+      target_id: "sens_stress_esg_mas_mgr.task_getesg_markerparm",
     },
     {
       source_id:
-        "sens_stress_esg_mas_mgr.task_trigger_esg_mas_mgr.weekend_dataload",
+        "sens_stress_esg_mas_mgr.task_trigger_esg_mas_mgr_weekend_dataload",
       target_id: "sens_stress_esg_mas_mgr.task_esg_load_success",
     },
     {
-      source_id: "sens_stress_esg_mas_mgr.upstream_join_id",
+      source_id:
+        "sens_stress_esg_mas_mgr.task_trigger_esg_mas_mgr_weekly_dataload",
+      target_id: "sens_stress_esg_mas_mgr.task_esg_load_success",
+    },
+    {
+      source_id: "sens_stress_esg_mas_mgr.task_trigger_esg_predvf_job",
       target_id: "sens_stress_esg_mas_mgr.task_check_esg_predvf_status",
+    },
+    {
+      source_id: "sens_stress_esg_mas_mgr.upstream_join_id",
+      target_id: "sens_stress_esg_mas_mgr.task_esg_summary_rmt_watcher",
+    },
+    {
+      source_id: "sens_stress_esg_mas_mgr.upstream_join_id",
+      target_id: "sens_stress_esg_mas_mgr.task_mas_global_data_watcher",
+    },
+    {
+      source_id: "start",
+      target_id: "rmt_dags.upstream_join_id",
+    },
+    {
+      source_id: "start",
+      target_id: "sens_stress_esg_mas_mgr.upstream_join_id",
     },
   ],
   nodes: {
