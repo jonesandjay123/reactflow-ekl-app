@@ -10,6 +10,7 @@ export interface CustomNodeData {
   style?: {
     backgroundColor?: string;
     borderRadius?: string;
+    overflow?: string;
   };
 }
 
@@ -39,6 +40,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({ id, data }) => {
         width: "100%",
         height: "100%",
         boxSizing: "border-box",
+        overflow: data.style?.overflow || "hidden",
       }}
     >
       {label}

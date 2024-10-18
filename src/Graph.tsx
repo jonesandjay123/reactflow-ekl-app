@@ -6,7 +6,7 @@ import ELK from "elkjs/lib/elk.bundled.js";
 import "reactflow/dist/style.css";
 import { jsonData } from "./data";
 import CustomNode from "./CustomNode";
-import CustomEdge from "./CustomEdge"; // 导入自定义边组件
+import CustomEdge from "./CustomEdge";
 
 import { parseJsonData, transformElkGraphToReactFlow } from "./graphUtils";
 import styled, { ThemeProvider } from "styled-components";

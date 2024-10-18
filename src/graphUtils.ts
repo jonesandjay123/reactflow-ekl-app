@@ -146,24 +146,22 @@ export function parseJsonData(
           width,
           height,
           children: node.children ? processNodes(node.children, node.id) : [],
-          edges: filteredEdges
-            .filter((e) => {
-              if (
-                childIds.includes(e.source_id) &&
-                childIds.includes(e.target_id)
-              ) {
-                return true;
-              }
-              return false;
-            })
-            .map((e) => formatEdge(e, font)),
+          edges: [],
         };
+
+        // Collect internal edges for this node
+        const internalEdges = filteredEdges.filter(
+          (e) =>
+            childIds.includes(e.source_id) && childIds.includes(e.target_id)
+        );
 
         // Remove internal edges from global edge list
         filteredEdges = filteredEdges.filter(
           (e) =>
             !(childIds.includes(e.source_id) && childIds.includes(e.target_id))
         );
+
+        elkNode.edges = internalEdges.map((e) => formatEdge(e, font));
 
         resultNodes.push(elkNode);
       } else {
@@ -201,7 +199,7 @@ export function parseJsonData(
     return resultNodes;
   }
 
-  // 移除 `id` 为 null 的节点
+  // 移除 id 为 null 的节点
   const nodesData = jsonData.nodes.children.filter(
     (node: JsonNode) => node.id !== null && node.id !== undefined
   );
@@ -234,13 +232,17 @@ export function transformElkGraphToReactFlow(
   const nodes: any[] = [];
   const edges: any[] = [];
 
-  function traverseElkNode(elkNode: any, parentId?: string) {
+  function traverseElkNode(
+    elkNode: any,
+    parentId?: string,
+    parentPosition = { x: 0, y: 0 }
+  ) {
     // Ignore root node
     if (elkNode.id === "root") {
       // Recursively traverse child nodes
       if (elkNode.children && elkNode.children.length > 0) {
         elkNode.children.forEach((child: any) => {
-          traverseElkNode(child, undefined);
+          traverseElkNode(child, undefined, { x: 0, y: 0 });
         });
       }
 
@@ -255,9 +257,6 @@ export function transformElkGraphToReactFlow(
             data: {
               label: elkEdge.labels?.[0]?.text || "",
             },
-            style: {
-              zIndex: 10,
-            },
           });
         });
       }
@@ -266,8 +265,8 @@ export function transformElkGraphToReactFlow(
 
     const { id, x, y, width, height, labels, properties } = elkNode;
     const position = {
-      x: x || 0,
-      y: y || 0,
+      x: (x || 0) + parentPosition.x,
+      y: (y || 0) + parentPosition.y,
     };
     const data = {
       label: labels && labels[0] ? labels[0].text : "",
@@ -276,7 +275,15 @@ export function transformElkGraphToReactFlow(
       style: {
         backgroundColor: properties?.backgroundColor || "#fff",
         borderRadius: properties?.borderRadius || "0px",
+        overflow: properties?.isParent ? "visible" : "hidden",
       },
+    };
+
+    const nodeStyle: any = {
+      width: width ? `${width}px` : undefined,
+      height: height ? `${height}px` : undefined,
+      backgroundColor: properties?.backgroundColor || "#fff",
+      overflow: properties?.isParent ? "visible" : "hidden",
     };
 
     const node: any = {
@@ -284,26 +291,17 @@ export function transformElkGraphToReactFlow(
       position,
       data,
       type: "custom",
-      style: {
-        width: width ? `${width}px` : undefined,
-        height: height ? `${height}px` : undefined,
-        backgroundColor: properties?.backgroundColor || "#fff",
-      },
+      style: nodeStyle,
       sourcePosition: "right",
       targetPosition: "left",
     };
-
-    if (parentId) {
-      node.parentNode = parentId;
-      node.extent = "parent";
-    }
 
     nodes.push(node);
 
     // Recursively traverse child nodes
     if (elkNode.children && elkNode.children.length > 0) {
       elkNode.children.forEach((child: any) => {
-        traverseElkNode(child, id);
+        traverseElkNode(child, id, position);
       });
     }
 
@@ -317,9 +315,6 @@ export function transformElkGraphToReactFlow(
           type: "custom",
           data: {
             label: elkEdge.labels?.[0]?.text || "",
-          },
-          style: {
-            zIndex: 10,
           },
         });
       });

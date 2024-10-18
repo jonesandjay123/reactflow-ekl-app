@@ -3,7 +3,7 @@
 import React from "react";
 import { EdgeProps, getBezierPath } from "reactflow";
 
-const CustomEdge = (props: EdgeProps) => {
+const CustomEdge: React.FC<EdgeProps> = (props) => {
   const {
     id,
     sourceX,
