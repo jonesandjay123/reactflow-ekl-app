@@ -1,42 +1,43 @@
 // src/CustomEdge.tsx
 
 import React from "react";
-import { EdgeProps } from "reactflow";
+import { EdgeProps, getBezierPath } from "reactflow";
 
-const CustomEdge = ({ data }: EdgeProps) => {
-  const elkEdge = data.elkEdge;
+const CustomEdge = (props: EdgeProps) => {
+  const {
+    id,
+    sourceX,
+    sourceY,
+    targetX,
+    targetY,
+    sourcePosition,
+    targetPosition,
+    style = {},
+    markerEnd,
+  } = props;
 
-  if (!elkEdge.sections || elkEdge.sections.length === 0) {
-    return null;
-  }
-
-  const paths = elkEdge.sections.map((section: any, index: number) => {
-    const points = [
-      section.startPoint,
-      ...(section.bendPoints || []),
-      section.endPoint,
-    ];
-
-    const pathData = points
-      .map((point: any, idx: number) => {
-        const command = idx === 0 ? "M" : "L";
-        return `${command} ${point.x} ${point.y}`;
-      })
-      .join(" ");
-
-    return (
-      <path
-        key={index}
-        d={pathData}
-        fill="none"
-        stroke="#222"
-        strokeWidth={2}
-        markerEnd="url(#react-flow__arrowclosed)"
-      />
-    );
+  const [edgePath] = getBezierPath({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
   });
 
-  return <>{paths}</>;
+  return (
+    <path
+      id={id}
+      style={{
+        stroke: "gray",
+        strokeWidth: 2,
+        ...style,
+      }}
+      className="react-flow__edge-path"
+      d={edgePath}
+      markerEnd={markerEnd}
+    />
+  );
 };
 
 export default CustomEdge;

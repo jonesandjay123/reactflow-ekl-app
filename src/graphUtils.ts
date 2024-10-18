@@ -11,32 +11,57 @@ export interface JsonNode {
 export interface JsonEdge {
   source_id: string;
   target_id: string;
+  label?: string;
 }
 
 export interface ElkNode {
   id: string;
-  width: number;
-  height: number;
-  labels: { text: string }[];
-  properties: any;
+  width?: number;
+  height?: number;
+  labels?: { text: string }[];
+  properties?: any;
+  layoutOptions?: Record<string, string>;
   children?: ElkNode[];
   edges?: ElkExtendedEdge[];
 }
 
 export interface ElkGraph {
   id: string;
-  layoutOptions: any;
+  layoutOptions: Record<string, string>;
   children: ElkNode[];
   edges: ElkExtendedEdge[];
+}
+
+export function getTextWidth(text: string, font: string): number {
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  if (context) {
+    context.font = font;
+    const metrics = context.measureText(text);
+    return metrics.width;
+  }
+  return text.length * 10;
 }
 
 export function parseJsonData(
   jsonData: any,
   expandedNodes: Set<string>
 ): ElkGraph {
-  const nodeMap = new Map<string, ElkNode>();
-  const parentMap = new Map<string, string | null>();
-  const includedNodeIds = new Set<string>();
+  const font = "bold 16px Arial";
+  let filteredEdges: JsonEdge[] = [...jsonData.edges];
+
+  function getNestedChildIds(nodes: JsonNode[]): string[] {
+    let childIds: string[] = [];
+    nodes.forEach((node) => {
+      if (node.id) {
+        childIds.push(node.id);
+        if (node.children) {
+          childIds = [...childIds, ...getNestedChildIds(node.children)];
+        }
+      }
+    });
+    return childIds;
+  }
 
   function processNodes(
     nodes: JsonNode[],
@@ -50,126 +75,151 @@ export function parseJsonData(
         return;
       }
 
-      parentMap.set(node.id, parentId);
+      const isOpen = expandedNodes.has(node.id);
+      const childIds = node.children ? getNestedChildIds(node.children) : [];
+      const isJoinNode = node.id.includes("join_id");
+      const isGateNode =
+        node.value.class === "or-gate" || node.value.class === "and-gate";
 
+      let width = 200;
+      let height = 80;
+
+      if (isJoinNode) {
+        width = 10;
+        height = 10;
+      } else if (isGateNode) {
+        width = 30;
+        height = 30;
+      } else {
+        const labelText = node.value.label || "";
+        const labelLength = getTextWidth(labelText, font);
+        width = labelLength > 200 ? labelLength : 200;
+      }
+
+      // 提取节点的背景颜色
       const styleMatch = node.value.style
-        ? node.value.style.match(/fill:(#[0-9a-fA-F]{3,6})/)
+        ? node.value.style.match(/fill:([^;]+)/)
         : null;
       const backgroundColor = styleMatch ? styleMatch[1] : "#fff";
 
-      const isExpanded = expandedNodes.has(node.id);
-
-      const elkNode: ElkNode = {
-        id: node.id,
-        width: 100,
-        height: 50,
-        labels: [{ text: node.value.label || "" }],
-        properties: {
-          backgroundColor: backgroundColor,
-          borderRadius: node.value.rx ? `${node.value.rx}px` : "0px",
-          isParent: !!node.children && node.children.length > 0,
-          isExpanded: isExpanded,
-        },
-      };
-
-      nodeMap.set(node.id, elkNode);
-
-      includedNodeIds.add(node.id);
-
-      if (elkNode.properties.isParent && isExpanded) {
-        // Node is expanded, process its children
-        if (node.children && node.children.length > 0) {
-          elkNode.children = processNodes(node.children, node.id);
-        }
+      // 构建节点的标签，并添加箭头符号
+      let label = node.value.label || "";
+      const hasChildren = node.children && node.children.length > 0;
+      if (hasChildren) {
+        label += isOpen ? " ▲" : " ▼";
       }
-      // If the node is collapsed, we don't process its children
 
-      resultNodes.push(elkNode);
+      if (isOpen && hasChildren) {
+        // Node is expanded
+        const elkNode: ElkNode = {
+          id: node.id,
+          labels: [{ text: label }],
+          layoutOptions: {
+            "elk.padding": "[top=80,left=15,bottom=15,right=15]",
+          },
+          properties: {
+            isOpen: true,
+            backgroundColor,
+            isParent: true,
+          },
+          width,
+          height,
+          children: node.children ? processNodes(node.children, node.id) : [],
+          edges: filteredEdges
+            .filter((e) => {
+              if (
+                childIds.includes(e.source_id) &&
+                childIds.includes(e.target_id)
+              ) {
+                return true;
+              }
+              return false;
+            })
+            .map((e) => formatEdge(e, font)),
+        };
+
+        // Remove internal edges from global edge list
+        filteredEdges = filteredEdges.filter(
+          (e) =>
+            !(childIds.includes(e.source_id) && childIds.includes(e.target_id))
+        );
+
+        resultNodes.push(elkNode);
+      } else {
+        // Node is collapsed or has no children
+        // Adjust edges to point to this node instead of its children
+        filteredEdges = filteredEdges
+          .filter(
+            (e) =>
+              !(
+                childIds.includes(e.source_id) && childIds.includes(e.target_id)
+              )
+          )
+          .map((e) => ({
+            ...e,
+            source_id: childIds.includes(e.source_id) ? node.id : e.source_id,
+            target_id: childIds.includes(e.target_id) ? node.id : e.target_id,
+          }));
+
+        const elkNode: ElkNode = {
+          id: node.id,
+          labels: [{ text: label }],
+          properties: {
+            isOpen: false,
+            backgroundColor,
+            isParent: hasChildren,
+          },
+          width,
+          height,
+        };
+
+        resultNodes.push(elkNode);
+      }
     });
 
     return resultNodes;
   }
 
-  // Build parentMap and includedNodeIds
+  function formatEdge(edge: JsonEdge, font: string): ElkExtendedEdge {
+    const label = edge.label || "";
+    const labelWidth = getTextWidth(label, font);
+
+    return {
+      id: `${edge.source_id}-${edge.target_id}`,
+      sources: [edge.source_id],
+      targets: [edge.target_id],
+      labels: label
+        ? [
+            {
+              id: `label-${edge.source_id}-${edge.target_id}`,
+              text: label,
+              width: labelWidth,
+              height: 16,
+            },
+          ]
+        : [],
+    };
+  }
+
   const nodes = processNodes(jsonData.nodes.children);
 
-  // Now process edges
-  const resultEdges: ElkExtendedEdge[] = [];
-
-  jsonData.edges.forEach((edge: JsonEdge) => {
-    let sourceId = adjustNodeId(edge.source_id);
-    let targetId = adjustNodeId(edge.target_id);
-
-    if (!sourceId || !targetId) {
-      // Cannot include this edge, as source or target node does not exist
-      return;
-    }
-
-    if (sourceId === targetId) {
-      // Avoid self-loop
-      return;
-    }
-
-    resultEdges.push({
-      id: `edge-${sourceId}-${targetId}`,
-      sources: [sourceId],
-      targets: [targetId],
-    });
-  });
-
-  function adjustNodeId(nodeId: string): string | null {
-    if (includedNodeIds.has(nodeId)) {
-      return nodeId;
-    }
-    // Node is not included, find its nearest included ancestor
-    let currentId = nodeId;
-    while (currentId) {
-      const parentId = parentMap.get(currentId);
-      if (!parentId) {
-        // Reached root and didn't find an included ancestor
-        return null;
-      }
-      if (includedNodeIds.has(parentId)) {
-        return parentId;
-      }
-      currentId = parentId;
-    }
-    return null;
-  }
+  const edges = filteredEdges.map((e) => formatEdge(e, font));
 
   const elkGraph: ElkGraph = {
     id: "root",
     layoutOptions: {
+      hierarchyHandling: "INCLUDE_CHILDREN",
       "elk.algorithm": "layered",
       "elk.direction": jsonData.arrange === "LR" ? "RIGHT" : "DOWN",
-      "elk.layered.hierarchyHandling": "INCLUDE_CHILDREN",
-      "elk.spacing.nodeNode": "50",
-      "elk.layered.spacing.nodeNodeBetweenLayers": "50",
+      "spacing.edgeLabel": "10.0",
+      "elk.edgeLabels.inline": "true",
+      "elk.padding": "[top=80,left=15,bottom=15,right=15]",
     },
     children: nodes,
-    edges: resultEdges,
+    edges: edges,
   };
 
   return elkGraph;
-}
-
-// 辅助函数，查找节点的可见父节点
-function findVisibleParent(nodeId: string, nodes: JsonNode[]): string | null {
-  for (const node of nodes) {
-    if (node.id === nodeId) {
-      return null; // 该节点本身已在可见节点集合中，但被折叠了
-    }
-    if (node.children && node.children.length > 0) {
-      if (node.children.some((child) => child.id === nodeId)) {
-        return node.id; // 找到父节点
-      }
-      const parentId = findVisibleParent(nodeId, node.children);
-      if (parentId) {
-        return parentId;
-      }
-    }
-  }
-  return null;
 }
 
 export function transformElkGraphToReactFlow(
@@ -200,7 +250,10 @@ export function transformElkGraphToReactFlow(
             id: elkEdge.id,
             source: elkEdge.sources[0],
             target: elkEdge.targets[0],
-            type: "default",
+            type: "custom",
+            data: {
+              label: elkEdge.labels?.[0]?.text || "",
+            },
           });
         });
       }
@@ -230,6 +283,7 @@ export function transformElkGraphToReactFlow(
       style: {
         width: width ? `${width}px` : undefined,
         height: height ? `${height}px` : undefined,
+        backgroundColor: properties?.backgroundColor || "#fff",
       },
       sourcePosition: "right",
       targetPosition: "left",
@@ -256,7 +310,10 @@ export function transformElkGraphToReactFlow(
           id: elkEdge.id,
           source: elkEdge.sources[0],
           target: elkEdge.targets[0],
-          type: "default",
+          type: "custom",
+          data: {
+            label: elkEdge.labels?.[0]?.text || "",
+          },
         });
       });
     }

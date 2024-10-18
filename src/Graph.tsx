@@ -15,7 +15,7 @@ import { darkTheme } from "./theme";
 const elk = new ELK();
 
 const nodeTypes = { custom: CustomNode };
-const edgeTypes = { customEdge: CustomEdge };
+const edgeTypes = { custom: CustomEdge };
 
 const ReactFlowStyled = styled(ReactFlow)`
   background-color: ${(props) => props.theme.bg};
