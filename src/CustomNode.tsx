@@ -1,5 +1,3 @@
-// src/CustomNode.tsx
-
 import React from "react";
 import { Handle, Position } from "reactflow";
 
@@ -10,6 +8,7 @@ export interface CustomNodeData {
   style?: {
     backgroundColor?: string;
     borderRadius?: string;
+    opacity?: number;
   };
 }
 
@@ -39,18 +38,19 @@ const CustomNode: React.FC<CustomNodeProps> = ({ id, data }) => {
         width: "100%",
         height: "100%",
         boxSizing: "border-box",
+        opacity: data.style?.opacity || 1, // 確保樣式中有 opacity
       }}
     >
       {label}
       <Handle
         type="target"
         position={Position.Left}
-        style={{ visibility: "hidden" }}
+        style={{ visibility: data.style?.opacity === 0 ? "hidden" : "visible" }}
       />
       <Handle
         type="source"
         position={Position.Right}
-        style={{ visibility: "hidden" }}
+        style={{ visibility: data.style?.opacity === 0 ? "hidden" : "visible" }}
       />
     </div>
   );

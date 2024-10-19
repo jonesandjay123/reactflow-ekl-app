@@ -19,6 +19,7 @@ const edgeTypes = { custom: CustomEdge };
 
 const ReactFlowStyled = styled(ReactFlow)`
   background-color: ${(props) => props.theme.bg};
+  z-index: 1; // 確保 React Flow 容器有足夠的 z-index
 `;
 
 const Graph: React.FC = () => {

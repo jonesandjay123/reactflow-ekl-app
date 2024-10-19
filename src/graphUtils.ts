@@ -237,18 +237,18 @@ export function transformElkGraphToReactFlow(
   const edges: any[] = [];
 
   function traverseElkNode(elkNode: any, parentId?: string) {
-    // Ignore root node
+    // 忽略 root 節點
     if (elkNode.id === "root") {
-      // Recursively traverse child nodes
+      // 遞歸遍歷子節點
       if (elkNode.children && elkNode.children.length > 0) {
-        elkNode.children.forEach((child: any) => {
+        elkGraph.children.forEach((child: any) => {
           traverseElkNode(child, undefined);
         });
       }
 
-      // Collect edges at root level
-      if (elkNode.edges) {
-        elkNode.edges.forEach((elkEdge: any) => {
+      // 收集 root 級別的邊
+      if (elkGraph.edges) {
+        elkGraph.edges.forEach((elkEdge: any) => {
           edges.push({
             id: elkEdge.id,
             source: elkEdge.sources[0],
@@ -258,7 +258,9 @@ export function transformElkGraphToReactFlow(
               label: elkEdge.labels?.[0]?.text || "",
             },
             style: {
-              zIndex: 10,
+              stroke: "blue",
+              strokeWidth: 4,
+              zIndex: 9999,
             },
           });
         });
@@ -272,11 +274,7 @@ export function transformElkGraphToReactFlow(
       y: y || 0,
     };
 
-    // 检查是否为 'join_id' 节点，跳过渲染
-    if (properties?.isJoinNode) {
-      return;
-    }
-
+    // 不再跳過 'join_id' 節點，而是渲染為透明節點
     const data = {
       label: labels && labels[0] ? labels[0].text : "",
       isParent: properties?.isParent || false,
@@ -284,6 +282,8 @@ export function transformElkGraphToReactFlow(
       style: {
         backgroundColor: properties?.backgroundColor || "#fff",
         borderRadius: properties?.borderRadius || "0px",
+        opacity: properties?.isJoinNode ? 0 : 1, // 如果是 joinNode，設置透明度為 0
+        pointerEvents: properties?.isJoinNode ? "none" : "auto", // 禁用透明節點的交互
       },
     };
 
@@ -296,6 +296,8 @@ export function transformElkGraphToReactFlow(
         width: width ? `${width}px` : undefined,
         height: height ? `${height}px` : undefined,
         backgroundColor: properties?.backgroundColor || "#fff",
+        opacity: properties?.isJoinNode ? 0 : 1, // 確保在樣式中設置透明度
+        pointerEvents: properties?.isJoinNode ? "none" : "auto",
       },
       sourcePosition: "right",
       targetPosition: "left",
@@ -307,15 +309,16 @@ export function transformElkGraphToReactFlow(
     }
 
     nodes.push(node);
+    console.log(`Node ${id} positioned at (${position.x}, ${position.y})`); // 新增這行
 
-    // Recursively traverse child nodes
+    // 遞歸遍歷子節點
     if (elkNode.children && elkNode.children.length > 0) {
       elkNode.children.forEach((child: any) => {
         traverseElkNode(child, id);
       });
     }
 
-    // Collect edges at this node level
+    // 收集此節點級別的邊
     if (elkNode.edges) {
       elkNode.edges.forEach((elkEdge: any) => {
         edges.push({
@@ -327,6 +330,8 @@ export function transformElkGraphToReactFlow(
             label: elkEdge.labels?.[0]?.text || "",
           },
           style: {
+            stroke: "red",
+            strokeWidth: 2,
             zIndex: 10,
           },
         });
@@ -334,7 +339,7 @@ export function transformElkGraphToReactFlow(
     }
   }
 
-  // Start traversing from the root
+  // 從 root 開始遍歷
   traverseElkNode(elkGraph);
 
   return { nodes, edges };

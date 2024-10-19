@@ -29,10 +29,10 @@ const CustomEdge = (props: EdgeProps) => {
     <path
       id={id}
       style={{
-        stroke: "gray",
-        strokeWidth: 2,
-        zIndex: 20,
-        pointerEvents: "none",
+        stroke: style.stroke || "red",
+        strokeWidth: style.strokeWidth || 2,
+        zIndex: style.zIndex || 10,
+        pointerEvents: "visiblePainted",
         ...style,
       }}
       className="react-flow__edge-path"
