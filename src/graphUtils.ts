@@ -256,13 +256,13 @@ export function transformElkGraphToReactFlow(
             type: "custom",
             data: {
               label: elkEdge.labels?.[0]?.text || "",
+              style: elkEdge.style, // 確保將 style 傳遞到 ReactFlow
             },
-            style: {
-              stroke: "blue",
-              strokeWidth: 4,
-              zIndex: 9999,
-            },
+            style: elkEdge.style, // 直接設置 style 屬性
           });
+          console.log(
+            `Added edge from ${elkEdge.sources[0]} to ${elkEdge.targets[0]}`
+          );
         });
       }
       return;
@@ -328,19 +328,19 @@ export function transformElkGraphToReactFlow(
           type: "custom",
           data: {
             label: elkEdge.labels?.[0]?.text || "",
+            style: elkEdge.style, // 確保傳遞樣式
           },
-          style: {
-            stroke: "red",
-            strokeWidth: 2,
-            zIndex: 10,
-          },
+          style: elkEdge.style, // 確保設置樣式
         });
+        console.log(
+          `Added edge from ${elkEdge.sources[0]} to ${elkEdge.targets[0]}`
+        );
       });
     }
   }
 
   // 從 root 開始遍歷
   traverseElkNode(elkGraph);
-
+  console.log("Generated ReactFlow edges:", edges);
   return { nodes, edges };
 }

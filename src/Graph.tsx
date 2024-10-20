@@ -48,12 +48,13 @@ const Graph: React.FC = () => {
 
       try {
         const elkLayout = await elk.layout(elkGraph);
-
+        console.log("ELK layout result:", elkLayout);
         const { nodes, edges } = transformElkGraphToReactFlow(
           elkLayout,
           onNodeDoubleClick
         );
-
+        console.log("Transformed nodes:", nodes);
+        console.log("Transformed edges:", edges);
         setElements({ nodes, edges });
       } catch (error) {
         console.error("ELK layout error:", error);

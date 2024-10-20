@@ -31,7 +31,6 @@ const CustomEdge = (props: EdgeProps) => {
       style={{
         stroke: style.stroke || "red",
         strokeWidth: style.strokeWidth || 2,
-        zIndex: style.zIndex || 10,
         pointerEvents: "visiblePainted",
         ...style,
       }}
