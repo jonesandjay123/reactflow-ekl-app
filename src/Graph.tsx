@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import ReactFlow, { ReactFlowProvider, Background } from "reactflow";
 import ELK from "elkjs/lib/elk.bundled.js";
 import "reactflow/dist/style.css";
-import { jsonData } from "./data2";
+import { jsonData } from "./data";
 import CustomNode from "./CustomNode";
 import CustomEdge from "./CustomEdge";
 
