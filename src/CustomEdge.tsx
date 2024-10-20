@@ -1,10 +1,8 @@
 // src/CustomEdge.tsx
 
-import React from "react";
 import { EdgeProps, getBezierPath } from "reactflow";
 
 const CustomEdge = (props: EdgeProps) => {
-  console.log("Rendering edge:", props.id, props.source, props.target);
   const {
     id,
     sourceX,

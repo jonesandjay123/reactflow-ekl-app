@@ -38,7 +38,7 @@ const CustomNode: React.FC<CustomNodeProps> = ({ id, data }) => {
         width: "100%",
         height: "100%",
         boxSizing: "border-box",
-        opacity: data.style?.opacity || 1, // 確保樣式中有 opacity
+        opacity: data.style?.opacity || 1, // Add opacity to hide the node
       }}
     >
       {label}

@@ -3,15 +3,15 @@
 export const jsonData = {
   arrange: "LR",
   edges: [
-    // 主节点之间的边
+    // main edges
     { source_id: "nodeA", target_id: "nodeB" },
     { source_id: "nodeB", target_id: "nodeC" },
-    // 子节点之间的边
+    // edges between children
     { source_id: "nodeA.child1", target_id: "nodeA.child2" },
-    // 跨层次的边（父节点与子节点）
+    // edges between parent and child
     { source_id: "nodeA", target_id: "nodeB.child1" },
     { source_id: "nodeB.child1", target_id: "nodeC" },
-    // 子节点与子节点之间的边（跨父节点）
+    // edges between children of different parents
     { source_id: "nodeA.child2", target_id: "nodeB.child2" },
   ],
   nodes: {
@@ -82,7 +82,7 @@ export const jsonData = {
           rx: 5,
           ry: 5,
         },
-        // Node C 没有子节点
+        // no children
       },
     ],
   },
