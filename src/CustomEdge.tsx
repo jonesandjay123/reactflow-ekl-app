@@ -4,6 +4,7 @@ import React from "react";
 import { EdgeProps, getBezierPath } from "reactflow";
 
 const CustomEdge = (props: EdgeProps) => {
+  console.log("Rendering edge:", props.id, props.source, props.target);
   const {
     id,
     sourceX,
@@ -19,9 +20,9 @@ const CustomEdge = (props: EdgeProps) => {
   const [edgePath] = getBezierPath({
     sourceX,
     sourceY,
-    sourcePosition,
     targetX,
     targetY,
+    sourcePosition,
     targetPosition,
   });
 
@@ -32,7 +33,6 @@ const CustomEdge = (props: EdgeProps) => {
         stroke: style.stroke || "red",
         strokeWidth: style.strokeWidth || 2,
         pointerEvents: "visiblePainted",
-        ...style,
       }}
       className="react-flow__edge-path"
       d={edgePath}

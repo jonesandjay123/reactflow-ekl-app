@@ -236,45 +236,22 @@ export function transformElkGraphToReactFlow(
   const nodes: any[] = [];
   const edges: any[] = [];
 
-  function traverseElkNode(elkNode: any, parentId?: string) {
-    // 忽略 root 節點
-    if (elkNode.id === "root") {
-      // 遞歸遍歷子節點
-      if (elkNode.children && elkNode.children.length > 0) {
-        elkGraph.children.forEach((child: any) => {
-          traverseElkNode(child, undefined);
-        });
-      }
+  const nodeIds = new Set<string>();
 
-      // 收集 root 級別的邊
-      if (elkGraph.edges) {
-        elkGraph.edges.forEach((elkEdge: any) => {
-          edges.push({
-            id: elkEdge.id,
-            source: elkEdge.sources[0],
-            target: elkEdge.targets[0],
-            type: "custom",
-            data: {
-              label: elkEdge.labels?.[0]?.text || "",
-              style: elkEdge.style, // 確保將 style 傳遞到 ReactFlow
-            },
-            style: elkEdge.style, // 直接設置 style 屬性
-          });
-          console.log(
-            `Added edge from ${elkEdge.sources[0]} to ${elkEdge.targets[0]}`
-          );
+  // Traverse nodes first
+  function traverseNodes(elkNode: any, parentId?: string) {
+    if (elkNode.id === "root") {
+      if (elkGraph.children && elkGraph.children.length > 0) {
+        elkGraph.children.forEach((child: any) => {
+          traverseNodes(child, undefined);
         });
       }
       return;
     }
 
     const { id, x, y, width, height, labels, properties } = elkNode;
-    const position = {
-      x: x || 0,
-      y: y || 0,
-    };
+    const position = { x: x || 0, y: y || 0 };
 
-    // 不再跳過 'join_id' 節點，而是渲染為透明節點
     const data = {
       label: labels && labels[0] ? labels[0].text : "",
       isParent: properties?.isParent || false,
@@ -282,8 +259,8 @@ export function transformElkGraphToReactFlow(
       style: {
         backgroundColor: properties?.backgroundColor || "#fff",
         borderRadius: properties?.borderRadius || "0px",
-        opacity: properties?.isJoinNode ? 0 : 1, // 如果是 joinNode，設置透明度為 0
-        pointerEvents: properties?.isJoinNode ? "none" : "auto", // 禁用透明節點的交互
+        opacity: properties?.isJoinNode ? 0 : 1,
+        pointerEvents: properties?.isJoinNode ? "none" : "auto",
       },
     };
 
@@ -296,7 +273,7 @@ export function transformElkGraphToReactFlow(
         width: width ? `${width}px` : undefined,
         height: height ? `${height}px` : undefined,
         backgroundColor: properties?.backgroundColor || "#fff",
-        opacity: properties?.isJoinNode ? 0 : 1, // 確保在樣式中設置透明度
+        opacity: properties?.isJoinNode ? 0 : 1,
         pointerEvents: properties?.isJoinNode ? "none" : "auto",
       },
       sourcePosition: "right",
@@ -309,38 +286,60 @@ export function transformElkGraphToReactFlow(
     }
 
     nodes.push(node);
-    console.log(`Node ${id} positioned at (${position.x}, ${position.y})`); // 新增這行
+    if (nodeIds.has(id)) {
+      console.warn(`Duplicate node ID detected: ${id}`);
+    }
+    nodeIds.add(id);
+    console.log(`Node ${id} positioned at (${position.x}, ${position.y})`);
 
-    // 遞歸遍歷子節點
     if (elkNode.children && elkNode.children.length > 0) {
       elkNode.children.forEach((child: any) => {
-        traverseElkNode(child, id);
-      });
-    }
-
-    // 收集此節點級別的邊
-    if (elkNode.edges) {
-      elkNode.edges.forEach((elkEdge: any) => {
-        edges.push({
-          id: elkEdge.id,
-          source: elkEdge.sources[0],
-          target: elkEdge.targets[0],
-          type: "custom",
-          data: {
-            label: elkEdge.labels?.[0]?.text || "",
-            style: elkEdge.style, // 確保傳遞樣式
-          },
-          style: elkEdge.style, // 確保設置樣式
-        });
-        console.log(
-          `Added edge from ${elkEdge.sources[0]} to ${elkEdge.targets[0]}`
-        );
+        traverseNodes(child, id);
       });
     }
   }
 
-  // 從 root 開始遍歷
-  traverseElkNode(elkGraph);
+  traverseNodes(elkGraph);
+
+  // Traverse and add edges
+  function traverseEdges(elkNode: any) {
+    if (elkNode.edges && elkNode.edges.length > 0) {
+      elkNode.edges.forEach((elkEdge: any) => {
+        const sourceId = elkEdge.sources[0];
+        const targetId = elkEdge.targets[0];
+        if (nodeIds.has(sourceId) && nodeIds.has(targetId)) {
+          if (!edges.find((e) => e.id === elkEdge.id)) {
+            // prevent duplicates
+            edges.push({
+              id: elkEdge.id,
+              source: sourceId,
+              target: targetId,
+              type: "custom",
+              data: {
+                label: elkEdge.labels?.[0]?.text || "",
+                style: elkEdge.style,
+              },
+              style: elkEdge.style,
+            });
+            console.log(`Added edge from ${sourceId} to ${targetId}`);
+          } else {
+            console.warn(`Duplicate edge ID detected: ${elkEdge.id}`);
+          }
+        } else {
+          console.warn(`Edge ${elkEdge.id} has invalid source or target.`);
+        }
+      });
+    }
+
+    if (elkNode.children && elkNode.children.length > 0) {
+      elkNode.children.forEach((child: any) => {
+        traverseEdges(child);
+      });
+    }
+  }
+
+  traverseEdges(elkGraph);
+
   console.log("Generated ReactFlow edges:", edges);
   return { nodes, edges };
 }
