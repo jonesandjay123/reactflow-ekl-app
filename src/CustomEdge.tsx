@@ -38,17 +38,22 @@ const CustomEdge: React.FC<EdgeProps> = (props) => {
   }
 
   return (
-    <path
-      id={id}
-      style={{
-        stroke: style.stroke || "red",
-        strokeWidth: style.strokeWidth || 2,
-        pointerEvents: "visiblePainted",
-      }}
-      className="react-flow__edge-path"
-      d={path}
-      markerEnd={markerEnd}
-    />
+    <>
+      <path
+        id={id}
+        style={{
+          stroke: style.stroke || "red",
+          strokeWidth: style.strokeWidth || 2,
+          pointerEvents: "visiblePainted",
+        }}
+        className="react-flow__edge-path"
+        d={path}
+        markerEnd={markerEnd}
+      />
+      {validBendPoints.map((bp: { x: number; y: number }, index: number) => (
+        <circle key={index} cx={bp.x} cy={bp.y} r={3} fill="blue" />
+      ))}
+    </>
   );
 };
 

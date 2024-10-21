@@ -213,10 +213,10 @@ export function parseJsonData(
     layoutOptions: {
       "elk.hierarchyHandling": "INCLUDE_CHILDREN",
       "elk.direction": jsonData.arrange === "LR" ? "RIGHT" : "DOWN",
-      "elk.layering.strategy": "NETWORK_SIMPLEX",
+      "elk.layering.strategy": "LONGEST_PATH", // Changed to NETWORK_SIMPLEX
       "elk.algorithm": "layered",
       "elk.crossingMinimization.semiInteractive": "true",
-      "elk.edgeRouting": "ORTHOGONAL",
+      "elk.edgeRouting": "POLYLINE", // ORTHOGONAL or SPLINES
       "elk.spacing.nodeNodeBetweenLayers": "40.0",
       "elk.spacing.edgeNodeBetweenLayers": "10.0",
       "elk.spacing.edgeEdgeBetweenLayers": "10.0",
