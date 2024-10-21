@@ -1,8 +1,9 @@
 // src/CustomEdge.tsx
 
-import { EdgeProps, getBezierPath } from "reactflow";
+import React from "react";
+import { EdgeProps } from "reactflow";
 
-const CustomEdge = (props: EdgeProps) => {
+const CustomEdge: React.FC<EdgeProps> = (props) => {
   const {
     id,
     sourceX,
@@ -13,16 +14,28 @@ const CustomEdge = (props: EdgeProps) => {
     targetPosition,
     style = {},
     markerEnd,
+    data: { bendPoints = [] },
   } = props;
 
-  const [edgePath] = getBezierPath({
-    sourceX,
-    sourceY,
-    targetX,
-    targetY,
-    sourcePosition,
-    targetPosition,
-  });
+  // ensure bendPoints are valid
+  const validBendPoints = bendPoints.filter(
+    (bp: any) => bp && typeof bp.x === "number" && typeof bp.y === "number"
+  );
+
+  // if no bendPoints, draw a straight line
+  let path = "";
+  if (validBendPoints.length === 0) {
+    path = `M${sourceX},${sourceY} L${targetX},${targetY}`;
+  } else {
+    // draw a line with bendPoints
+    const points = [
+      { x: sourceX, y: sourceY },
+      ...validBendPoints,
+      { x: targetX, y: targetY },
+    ];
+
+    path = `M${points.map((p) => `${p.x},${p.y}`).join(" L")}`;
+  }
 
   return (
     <path
@@ -33,7 +46,7 @@ const CustomEdge = (props: EdgeProps) => {
         pointerEvents: "visiblePainted",
       }}
       className="react-flow__edge-path"
-      d={edgePath}
+      d={path}
       markerEnd={markerEnd}
     />
   );

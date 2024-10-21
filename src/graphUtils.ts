@@ -211,11 +211,20 @@ export function parseJsonData(
   const elkGraph: ElkGraph = {
     id: "root",
     layoutOptions: {
-      hierarchyHandling: "INCLUDE_CHILDREN",
+      "elk.hierarchyHandling": "INCLUDE_CHILDREN",
       "elk.direction": jsonData.arrange === "LR" ? "RIGHT" : "DOWN",
-      "spacing.edgeLabel": "10.0",
+      "elk.layering.strategy": "NETWORK_SIMPLEX",
+      "elk.algorithm": "layered",
+      "elk.crossingMinimization.semiInteractive": "true",
+      "elk.edgeRouting": "ORTHOGONAL",
+      "elk.spacing.nodeNodeBetweenLayers": "40.0",
+      "elk.spacing.edgeNodeBetweenLayers": "10.0",
+      "elk.spacing.edgeEdgeBetweenLayers": "10.0",
+      "elk.spacing.edgeNode": "10.0",
+      "elk.spacing.edgeEdge": "10.0",
+      "elk.spacing.nodeNode": "20.0",
+      "elk.spacing.edgeLabel": "10.0",
       "elk.core.options.EdgeLabelPlacement": "CENTER",
-      // Additional layout options can be added here as needed
     },
     children: nodes,
     edges: edges,
@@ -300,6 +309,15 @@ export function transformElkGraphToReactFlow(
         const targetId = elkEdge.targets[0];
         if (nodeIds.has(sourceId) && nodeIds.has(targetId)) {
           if (!edges.find((e) => e.id === elkEdge.id)) {
+            // 確保 bendPoints 是有效的
+            const bendPoints =
+              elkEdge.sections
+                ?.flatMap((section: any) => section.bendPoints || [])
+                .filter(
+                  (bp: any) =>
+                    bp && typeof bp.x === "number" && typeof bp.y === "number"
+                ) || [];
+
             edges.push({
               id: elkEdge.id,
               source: sourceId,
@@ -307,6 +325,7 @@ export function transformElkGraphToReactFlow(
               type: "custom",
               data: {
                 label: elkEdge.labels?.[0]?.text || "",
+                bendPoints: bendPoints,
               },
               style: elkEdge.style,
             });
