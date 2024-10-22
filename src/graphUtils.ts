@@ -32,6 +32,20 @@ export interface ElkGraph {
   edges: ElkExtendedEdge[];
 }
 
+const getDirection = (arrange: string): string => {
+  switch (arrange) {
+    case "RL":
+      return "LEFT";
+    case "TB":
+      return "DOWN";
+    case "BT":
+      return "UP";
+    case "LR":
+    default:
+      return "RIGHT";
+  }
+};
+
 export function getTextWidth(text: string, font: string): number {
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
@@ -92,80 +106,51 @@ export function parseJsonData(
 
     nodes.forEach((node: JsonNode) => {
       if (!node.id) {
-        // Skip nodes without an ID
         return;
       }
 
       const isOpen = expandedNodes.has(node.id);
       const childIds = node.children ? getNestedChildIds(node.children) : [];
-      const isJoinNode = node.id.includes("join_id");
-      const isGateNode =
-        node.value.class === "or-gate" || node.value.class === "and-gate";
 
-      let width = 200;
-      let height = 80;
-
-      // Adjust node dimensions based on node type
-      if (isJoinNode) {
-        width = 10;
-        height = 10;
-      } else if (isGateNode) {
-        width = 30;
-        height = 30;
-      } else {
-        const labelText = node.value.label || "";
-        const labelLength = getTextWidth(labelText, font);
-        width = labelLength > 200 ? labelLength : 200;
-      }
-
-      // Extract the background color from the node's style if available
-      const styleMatch = node.value.style
-        ? node.value.style.match(/fill:([^;]+)/)
-        : null;
-      const backgroundColor = styleMatch ? styleMatch[1] : "#fff";
-
-      // Construct the node's label, adding an arrow if it has children
-      let label = node.value.label || "";
-      const hasChildren = node.children && node.children.length > 0;
-      if (hasChildren) {
-        label += isOpen ? " ▲" : " ▼";
-      }
-
-      if (isOpen && hasChildren) {
-        // Node is expanded; include its children and internal edges
+      if (isOpen && node.children?.length) {
         const elkNode: ElkNode = {
           id: node.id,
-          labels: [{ text: label }],
+          labels: [{ text: node.value.label || "" }],
           layoutOptions: {
             "elk.padding": "[top=80,left=15,bottom=15,right=15]",
           },
           properties: {
             isOpen: true,
-            backgroundColor,
-            isParent: true,
-            isJoinNode,
+            backgroundColor:
+              node.value.style?.match(/fill:([^;]+)/)?.[1] || "#fff",
           },
-          width,
-          height,
+          width: 200,
+          height: 80,
           children: node.children ? processNodes(node.children, node.id) : [],
           edges: filteredEdges
             .filter((e) => {
-              return (
-                childIds.includes(e.source_id) && childIds.includes(e.target_id)
-              );
+              if (
+                childIds.indexOf(e.source_id) > -1 &&
+                childIds.indexOf(e.target_id) > -1
+              ) {
+                // Remove internal edges
+                filteredEdges = filteredEdges.filter(
+                  (fe) =>
+                    !(
+                      fe.source_id === e.source_id &&
+                      fe.target_id === e.target_id
+                    )
+                );
+                return true;
+              }
+              return false;
             })
             .map((e) => formatEdge(e, font)),
         };
 
-        // Remove internal edges from the global edge list
-        filteredEdges = filteredEdges.filter(
-          (e) =>
-            !(childIds.includes(e.source_id) && childIds.includes(e.target_id))
-        );
-
         resultNodes.push(elkNode);
       } else {
-        // Node is collapsed or has no children; adjust edges to point to this node
+        // handle non-expanded or leaf nodes
         filteredEdges = filteredEdges
           .filter(
             (e) =>
@@ -179,20 +164,16 @@ export function parseJsonData(
             target_id: childIds.includes(e.target_id) ? node.id : e.target_id,
           }));
 
-        const elkNode: ElkNode = {
+        resultNodes.push({
           id: node.id,
-          labels: [{ text: label }],
+          labels: [{ text: node.value.label || "" }],
+          width: 200,
+          height: 80,
           properties: {
-            isOpen: false,
-            backgroundColor,
-            isParent: hasChildren,
-            isJoinNode,
+            backgroundColor:
+              node.value.style?.match(/fill:([^;]+)/)?.[1] || "#fff",
           },
-          width,
-          height,
-        };
-
-        resultNodes.push(elkNode);
+        });
       }
     });
 
@@ -212,22 +193,22 @@ export function parseJsonData(
     id: "root",
     layoutOptions: {
       "elk.hierarchyHandling": "INCLUDE_CHILDREN",
-      "elk.direction": jsonData.arrange === "LR" ? "RIGHT" : "DOWN",
-      "elk.layering.strategy": "LONGEST_PATH", // Changed to NETWORK_SIMPLEX
-      "elk.algorithm": "layered",
-      "elk.crossingMinimization.semiInteractive": "true",
-      "elk.edgeRouting": "POLYLINE", // ORTHOGONAL or SPLINES
-      "elk.spacing.nodeNodeBetweenLayers": "40.0",
-      "elk.spacing.edgeNodeBetweenLayers": "10.0",
-      "elk.spacing.edgeEdgeBetweenLayers": "10.0",
-      "elk.spacing.edgeNode": "10.0",
-      "elk.spacing.edgeEdge": "10.0",
-      "elk.spacing.nodeNode": "20.0",
+      "elk.direction": getDirection(jsonData.arrange), // 使用 getDirection 方法
+      "elk.layering.strategy": "INTERACTIVE", // 保持交互式佈局
+      "elk.edgeRouting": "SPLINE", // 使用曲線繞行邊
+      "elk.spacing.nodeNodeBetweenLayers": "50.0",
+      "elk.spacing.edgeNodeBetweenLayers": "20.0",
+      "elk.spacing.edgeEdgeBetweenLayers": "20.0",
+      "elk.spacing.edgeNode": "20.0",
+      "elk.spacing.edgeEdge": "20.0",
+      "elk.spacing.nodeNode": "40.0",
       "elk.spacing.edgeLabel": "10.0",
+      "elk.separateConnectedComponents": "true", // 分離連接的組件
+      "crossingMinimization.semiInteractive": "true", // 減少交叉
       "elk.core.options.EdgeLabelPlacement": "CENTER",
     },
     children: nodes,
-    edges: edges,
+    edges: filteredEdges.map((e) => formatEdge(e, font)),
   };
 
   return elkGraph;
@@ -309,15 +290,6 @@ export function transformElkGraphToReactFlow(
         const targetId = elkEdge.targets[0];
         if (nodeIds.has(sourceId) && nodeIds.has(targetId)) {
           if (!edges.find((e) => e.id === elkEdge.id)) {
-            // 確保 bendPoints 是有效的
-            const bendPoints =
-              elkEdge.sections
-                ?.flatMap((section: any) => section.bendPoints || [])
-                .filter(
-                  (bp: any) =>
-                    bp && typeof bp.x === "number" && typeof bp.y === "number"
-                ) || [];
-
             edges.push({
               id: elkEdge.id,
               source: sourceId,
@@ -325,7 +297,6 @@ export function transformElkGraphToReactFlow(
               type: "custom",
               data: {
                 label: elkEdge.labels?.[0]?.text || "",
-                bendPoints: bendPoints,
               },
               style: elkEdge.style,
             });
