@@ -32,20 +32,6 @@ export interface ElkGraph {
   edges: ElkExtendedEdge[];
 }
 
-const getDirection = (arrange: string): string => {
-  switch (arrange) {
-    case "RL":
-      return "LEFT";
-    case "TB":
-      return "DOWN";
-    case "BT":
-      return "UP";
-    case "LR":
-    default:
-      return "RIGHT";
-  }
-};
-
 export function getTextWidth(text: string, font: string): number {
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
@@ -57,9 +43,202 @@ export function getTextWidth(text: string, font: string): number {
   return text.length * 10; // Fallback if context is not available
 }
 
-export function formatEdge(edge: JsonEdge, font: string): ElkExtendedEdge {
+export function parseJsonData(
+  jsonData: any,
+  expandedNodes: Set<string>
+): ElkGraph {
+  const font = "bold 16px Arial";
+  let filteredEdges: JsonEdge[] = [...jsonData.edges];
+
+  // Map to keep track of each node's top-level parent
+  const nodeParentMap: Record<string, string> = {};
+
+  function getNestedChildIds(
+    nodes: JsonNode[],
+    parentId: string | null = null,
+    rootParentId: string | null = null
+  ): string[] {
+    let childIds: string[] = [];
+    nodes.forEach((node) => {
+      if (node.id) {
+        childIds.push(node.id);
+        // Map node ID to its top-level parent ID
+        nodeParentMap[node.id] = rootParentId ? rootParentId : node.id;
+        if (node.children) {
+          childIds = [
+            ...childIds,
+            ...getNestedChildIds(
+              node.children,
+              node.id,
+              rootParentId ? rootParentId : node.id
+            ),
+          ];
+        }
+      }
+    });
+    return childIds;
+  }
+
+  function processNodes(
+    nodes: JsonNode[],
+    parentId: string | null = null
+  ): ElkNode[] {
+    const resultNodes: ElkNode[] = [];
+
+    nodes.forEach((node: JsonNode) => {
+      if (!node.id) {
+        // Skip nodes without an ID
+        return;
+      }
+
+      const isOpen = expandedNodes.has(node.id);
+      const childIds = node.children
+        ? getNestedChildIds(node.children, node.id)
+        : [];
+      const isJoinNode = node.id.includes("join_id");
+      const isGateNode =
+        node.value.class === "or-gate" || node.value.class === "and-gate";
+
+      let width = 200;
+      let height = 80;
+
+      // Adjust node dimensions based on node type
+      if (isJoinNode) {
+        width = 10;
+        height = 10;
+      } else if (isGateNode) {
+        width = 30;
+        height = 30;
+      } else {
+        const labelText = node.value.label || "";
+        const labelLength = getTextWidth(labelText, font);
+        width = labelLength > 200 ? labelLength : 200;
+      }
+
+      // Extract the background color from the node's style if available
+      const styleMatch = node.value.style
+        ? node.value.style.match(/fill:([^;]+)/)
+        : null;
+      const backgroundColor = styleMatch ? styleMatch[1] : "#fff";
+
+      // Construct the node's label, adding an arrow if it has children
+      let label = node.value.label || "";
+      const hasChildren = node.children && node.children.length > 0;
+      if (hasChildren) {
+        label += isOpen ? " ▲" : " ▼";
+      }
+
+      if (isOpen && hasChildren) {
+        // Node is expanded; include its children and internal edges
+        const elkNode: ElkNode = {
+          id: node.id,
+          labels: [{ text: label }],
+          layoutOptions: {
+            "elk.padding": "[top=80,left=15,bottom=15,right=15]",
+          },
+          properties: {
+            isOpen: true,
+            backgroundColor,
+            isParent: true,
+            isJoinNode,
+          },
+          width,
+          height,
+          children: node.children ? processNodes(node.children, node.id) : [],
+          edges: filteredEdges
+            .filter((e) => {
+              return (
+                childIds.includes(e.source_id) && childIds.includes(e.target_id)
+              );
+            })
+            .map((e) => formatEdge(e, font, nodeParentMap)),
+        };
+
+        // Remove internal edges from the global edge list
+        filteredEdges = filteredEdges.filter(
+          (e) =>
+            !(childIds.includes(e.source_id) && childIds.includes(e.target_id))
+        );
+
+        resultNodes.push(elkNode);
+      } else {
+        // Node is collapsed or has no children; adjust edges to point to this node
+        filteredEdges = filteredEdges
+          .filter(
+            (e) =>
+              !(
+                childIds.includes(e.source_id) && childIds.includes(e.target_id)
+              )
+          )
+          .map((e) => ({
+            ...e,
+            source_id: childIds.includes(e.source_id) ? node.id : e.source_id,
+            target_id: childIds.includes(e.target_id) ? node.id : e.target_id,
+          }));
+
+        const elkNode: ElkNode = {
+          id: node.id,
+          labels: [{ text: label }],
+          properties: {
+            isOpen: false,
+            backgroundColor,
+            isParent: hasChildren,
+            isJoinNode,
+          },
+          width,
+          height,
+        };
+
+        resultNodes.push(elkNode);
+      }
+    });
+
+    return resultNodes;
+  }
+
+  // Remove nodes with null or undefined IDs
+  const nodesData = jsonData.nodes.children.filter(
+    (node: JsonNode) => node.id !== null && node.id !== undefined
+  );
+
+  // Build the nodeParentMap by getting all child IDs
+  getNestedChildIds(nodesData);
+
+  const nodes = processNodes(nodesData);
+
+  const edges = filteredEdges.map((e) => formatEdge(e, font, nodeParentMap));
+
+  const elkGraph: ElkGraph = {
+    id: "root",
+    layoutOptions: {
+      "elk.hierarchyHandling": "INCLUDE_CHILDREN",
+      "elk.direction": jsonData.arrange === "LR" ? "RIGHT" : "DOWN",
+      "elk.layering.strategy": "INTERACTIVE",
+      "elk.algorithm": "layered",
+      "elk.edgeRouting": "POLYLINE",
+      "elk.spacing.nodeNodeBetweenLayers": "40.0",
+      "elk.spacing.edgeNodeBetweenLayers": "10.0",
+      // ...other layout options
+    },
+    children: nodes,
+    edges: edges,
+  };
+
+  return elkGraph;
+}
+
+export function formatEdge(
+  edge: JsonEdge,
+  font: string,
+  nodeParentMap: Record<string, string>
+): ElkExtendedEdge {
   const label = edge.label || "";
   const labelWidth = getTextWidth(label, font);
+
+  // Determine if the edge is internal (both nodes share the same top-level parent)
+  const sourceRootParent = nodeParentMap[edge.source_id];
+  const targetRootParent = nodeParentMap[edge.target_id];
+  const isInternalEdge = sourceRootParent === targetRootParent;
 
   return {
     id: `${edge.source_id}-${edge.target_id}`,
@@ -75,143 +254,12 @@ export function formatEdge(edge: JsonEdge, font: string): ElkExtendedEdge {
           },
         ]
       : [],
-  };
-}
-
-export function parseJsonData(
-  jsonData: any,
-  expandedNodes: Set<string>
-): ElkGraph {
-  const font = "bold 16px Arial";
-  let filteredEdges: JsonEdge[] = [...jsonData.edges];
-
-  function getNestedChildIds(nodes: JsonNode[]): string[] {
-    let childIds: string[] = [];
-    nodes.forEach((node) => {
-      if (node.id) {
-        childIds.push(node.id);
-        if (node.children) {
-          childIds = [...childIds, ...getNestedChildIds(node.children)];
+    layoutOptions: isInternalEdge
+      ? {
+          priority: "10", // Set higher priority for internal edges
         }
-      }
-    });
-    return childIds;
-  }
-
-  function processNodes(
-    nodes: JsonNode[],
-    parentId: string | null = null
-  ): ElkNode[] {
-    const resultNodes: ElkNode[] = [];
-
-    nodes.forEach((node: JsonNode) => {
-      if (!node.id) {
-        return;
-      }
-
-      const isOpen = expandedNodes.has(node.id);
-      const childIds = node.children ? getNestedChildIds(node.children) : [];
-
-      if (isOpen && node.children?.length) {
-        const elkNode: ElkNode = {
-          id: node.id,
-          labels: [{ text: node.value.label || "" }],
-          layoutOptions: {
-            "elk.padding": "[top=80,left=15,bottom=15,right=15]",
-          },
-          properties: {
-            isOpen: true,
-            backgroundColor:
-              node.value.style?.match(/fill:([^;]+)/)?.[1] || "#fff",
-          },
-          width: 200,
-          height: 80,
-          children: node.children ? processNodes(node.children, node.id) : [],
-          edges: filteredEdges
-            .filter((e) => {
-              if (
-                childIds.indexOf(e.source_id) > -1 &&
-                childIds.indexOf(e.target_id) > -1
-              ) {
-                // Remove internal edges
-                filteredEdges = filteredEdges.filter(
-                  (fe) =>
-                    !(
-                      fe.source_id === e.source_id &&
-                      fe.target_id === e.target_id
-                    )
-                );
-                return true;
-              }
-              return false;
-            })
-            .map((e) => formatEdge(e, font)),
-        };
-
-        resultNodes.push(elkNode);
-      } else {
-        // handle non-expanded or leaf nodes
-        filteredEdges = filteredEdges
-          .filter(
-            (e) =>
-              !(
-                childIds.includes(e.source_id) && childIds.includes(e.target_id)
-              )
-          )
-          .map((e) => ({
-            ...e,
-            source_id: childIds.includes(e.source_id) ? node.id : e.source_id,
-            target_id: childIds.includes(e.target_id) ? node.id : e.target_id,
-          }));
-
-        resultNodes.push({
-          id: node.id,
-          labels: [{ text: node.value.label || "" }],
-          width: 200,
-          height: 80,
-          properties: {
-            backgroundColor:
-              node.value.style?.match(/fill:([^;]+)/)?.[1] || "#fff",
-          },
-        });
-      }
-    });
-
-    return resultNodes;
-  }
-
-  // Remove nodes with null or undefined IDs
-  const nodesData = jsonData.nodes.children.filter(
-    (node: JsonNode) => node.id !== null && node.id !== undefined
-  );
-
-  const nodes = processNodes(nodesData);
-
-  const edges = filteredEdges.map((e) => formatEdge(e, font));
-
-  const elkGraph: ElkGraph = {
-    id: "root",
-    layoutOptions: {
-      "elk.hierarchyHandling": "INCLUDE_CHILDREN",
-      "elk.direction": getDirection(jsonData.arrange), // 使用 getDirection 方法
-      "elk.layering.strategy": "INTERACTIVE", // 保持交互式佈局
-      "elk.edgeRouting": "SPLINE", // 使用曲線繞行邊
-      "elk.spacing.nodeNodeBetweenLayers": "50.0",
-      "elk.spacing.edgeNodeBetweenLayers": "20.0",
-      "elk.spacing.edgeEdgeBetweenLayers": "20.0",
-      "elk.spacing.edgeNode": "20.0",
-      "elk.spacing.edgeEdge": "20.0",
-      "elk.spacing.nodeNode": "40.0",
-      "elk.spacing.edgeLabel": "10.0",
-      "elk.separateConnectedComponents": "true", // 分離連接的組件
-      "crossingMinimization.semiInteractive": "true", // 減少交叉
-      "elk.core.options.EdgeLabelPlacement": "CENTER",
-    },
-    children: nodes,
-    edges: filteredEdges.map((e) => formatEdge(e, font)),
+      : {},
   };
-
-  return elkGraph;
 }
 
 export function transformElkGraphToReactFlow(
