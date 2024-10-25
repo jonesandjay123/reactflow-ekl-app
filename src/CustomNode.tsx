@@ -1,8 +1,11 @@
 import React from "react";
-import { Handle, Position } from "reactflow";
+import { Handle, Position, NodeProps } from "reactflow";
 
 export interface CustomNodeData {
   label: string;
+  status?: string;
+  startTimestamp?: string;
+  isDelayed?: boolean;
   isParent: boolean;
   onDoubleClick: (id: string) => void;
   style?: {
@@ -17,13 +20,24 @@ export interface CustomNodeProps {
   data: CustomNodeData;
 }
 
-const CustomNode: React.FC<CustomNodeProps> = ({ id, data }) => {
-  const { label, isParent, onDoubleClick } = data;
+const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({ id, data }) => {
+  const { label, status, startTimestamp, isDelayed, isParent, onDoubleClick } =
+    data;
 
   const handleDoubleClick = () => {
     if (onDoubleClick) {
       onDoubleClick(id);
     }
+  };
+
+  const renderContent = () => {
+    return (
+      <div>
+        some extra content...
+        {status && <div>Status: {status}</div>}
+        {startTimestamp && <div>Start Timestamp: {startTimestamp}</div>}
+      </div>
+    );
   };
 
   return (
@@ -41,12 +55,13 @@ const CustomNode: React.FC<CustomNodeProps> = ({ id, data }) => {
         opacity: data.style?.opacity || 1, // Add opacity to hide the node
       }}
     >
-      {label}
+      <span style={{ color: "black" }}>{label}</span>
       <Handle
         type="target"
         position={Position.Left}
         style={{ visibility: data.style?.opacity === 0 ? "hidden" : "visible" }}
       />
+      {renderContent()}
       <Handle
         type="source"
         position={Position.Right}
