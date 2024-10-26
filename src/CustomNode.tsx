@@ -1,3 +1,5 @@
+// src/CustomNode.tsx
+
 import React from "react";
 import { Handle, Position, NodeProps } from "reactflow";
 
@@ -33,7 +35,6 @@ const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({ id, data }) => {
   const renderContent = () => {
     return (
       <div>
-        some extra content...
         {status && <div>Status: {status}</div>}
         {startTimestamp && <div>Start Timestamp: {startTimestamp}</div>}
       </div>

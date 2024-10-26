@@ -110,7 +110,10 @@ export function parseJsonData(
       const isGateNode =
         node.value.class === "or-gate" || node.value.class === "and-gate";
 
-      let width = 200;
+      // adjust node dimensions based on node type
+      const labelText = node.value.label || "";
+      const labelLength = getTextWidth(labelText, font);
+      let width = Math.max(labelLength + 20, 200); // Minimum width of 200
       let height = 80;
 
       // Adjust node dimensions based on node type
@@ -120,10 +123,6 @@ export function parseJsonData(
       } else if (isGateNode) {
         width = 30;
         height = 30;
-      } else {
-        const labelText = node.value.label || "";
-        const labelLength = getTextWidth(labelText, font);
-        width = labelLength > 200 ? labelLength : 200;
       }
 
       // Extract the background color from the node's style if available
@@ -232,10 +231,18 @@ export function parseJsonData(
       "elk.direction": jsonData.arrange === "LR" ? "RIGHT" : "DOWN",
       "spacing.edgeLabel": "10.0",
       "elk.core.options.EdgeLabelPlacement": "CENTER",
-      // Additional layout options can be added here as needed
-      "elk.layered.nodePlacement.bk.fixedAlignment": "BALANCED",
-      "elk.layered.spacing.nodeNodeBetweenLayers": "120",
+      // additional layout options can be added here
+      algorithm: "layered",
+      "layering.strategy": "INTERACTIVE",
+      "crossingMinimization.semiInteractive": "true",
+      "spacing.nodeNodeBetweenLayers": "40.0",
+      "spacing.edgeNodeBetweenLayers": "10.0",
+      "spacing.edgeEdgeBetweenLayers": "10.0",
+      "spacing.edgeNode": "10.0",
+      "spacing.edgeEdge": "10.0",
+      "spacing.nodeNode": "20.0",
     },
+
     children: nodes,
     edges: edges,
   };
