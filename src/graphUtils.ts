@@ -259,18 +259,26 @@ export function transformElkGraphToReactFlow(
 
   const nodeIds = new Set<string>();
 
-  function traverseNodes(elkNode: any) {
+  // using map to store the absolute position of each node
+  const nodePositions = new Map<string, { x: number; y: number }>();
+
+  function traverseNodes(elkNode: any, parentPosition = { x: 0, y: 0 }) {
     if (elkNode.id === "root") {
       if (elkGraph.children && elkGraph.children.length > 0) {
         elkGraph.children.forEach((child: any) => {
-          traverseNodes(child);
+          traverseNodes(child, parentPosition);
         });
       }
       return;
     }
 
     const { id, x, y, width, height, labels, properties } = elkNode;
-    const position = { x: x || 0, y: y || 0 };
+
+    // calculate the absolute position of the node
+    const absolutePosition = {
+      x: (x || 0) + parentPosition.x,
+      y: (y || 0) + parentPosition.y,
+    };
 
     const { status, startTimestamp, isDelayed } = properties || {};
 
@@ -291,7 +299,7 @@ export function transformElkGraphToReactFlow(
 
     const node: any = {
       id,
-      position,
+      position: absolutePosition, // use the absolute position
       data,
       type: "custom",
       style: {
@@ -303,19 +311,17 @@ export function transformElkGraphToReactFlow(
       },
       sourcePosition: "right",
       targetPosition: "left",
-      // Remove parentNode and extent
-      // parentNode: parentId,
-      // extent: parentId ? "parent" : undefined,
     };
 
     if (!nodeIds.has(id)) {
       nodes.push(node);
       nodeIds.add(id);
+      nodePositions.set(id, absolutePosition); // save the absolute position
     }
 
     if (elkNode.children && elkNode.children.length > 0) {
       elkNode.children.forEach((child: any) => {
-        traverseNodes(child);
+        traverseNodes(child, absolutePosition); // pass the absolute position
       });
     }
   }
@@ -323,21 +329,29 @@ export function transformElkGraphToReactFlow(
   traverseNodes(elkGraph);
 
   function traverseEdges(elkNode: any) {
+    // get the absolute position of the node
+    const elkNodePosition = nodePositions.get(elkNode.id) || { x: 0, y: 0 };
+
     if (elkNode.edges && elkNode.edges.length > 0) {
       elkNode.edges.forEach((elkEdge: any) => {
         const sourceId = elkEdge.sources[0];
         const targetId = elkEdge.targets[0];
         if (nodeIds.has(sourceId) && nodeIds.has(targetId)) {
           if (!edges.find((e) => e.id === elkEdge.id)) {
-            // Extract the edge points from the ELK edge
+            // adjust the edge points based on the node's absolute position
             const sections = elkEdge.sections || [];
             let points: { x: number; y: number }[] = [];
             sections.forEach((section: any) => {
-              points.push(section.startPoint);
+              const adjustPoint = (point: { x: number; y: number }) => ({
+                x: point.x + elkNodePosition.x,
+                y: point.y + elkNodePosition.y,
+              });
+
+              points.push(adjustPoint(section.startPoint));
               if (section.bendPoints) {
-                points = points.concat(section.bendPoints);
+                points = points.concat(section.bendPoints.map(adjustPoint));
               }
-              points.push(section.endPoint);
+              points.push(adjustPoint(section.endPoint));
             });
 
             edges.push({
@@ -347,7 +361,7 @@ export function transformElkGraphToReactFlow(
               type: "custom",
               data: {
                 label: elkEdge.labels?.[0]?.text || "",
-                points, // pass the points to the edge
+                points, // the adjusted points
               },
               style: elkEdge.style,
             });

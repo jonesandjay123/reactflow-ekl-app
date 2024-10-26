@@ -60,13 +60,13 @@ const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({ id, data }) => {
       <Handle
         type="target"
         position={Position.Left}
-        style={{ visibility: data.style?.opacity === 0 ? "hidden" : "visible" }}
+        style={{ visibility: "hidden" }}
       />
       {renderContent()}
       <Handle
         type="source"
         position={Position.Right}
-        style={{ visibility: data.style?.opacity === 0 ? "hidden" : "visible" }}
+        style={{ visibility: "hidden" }}
       />
     </div>
   );
