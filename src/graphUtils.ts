@@ -259,11 +259,11 @@ export function transformElkGraphToReactFlow(
 
   const nodeIds = new Set<string>();
 
-  function traverseNodes(elkNode: any, parentId?: string) {
+  function traverseNodes(elkNode: any) {
     if (elkNode.id === "root") {
       if (elkGraph.children && elkGraph.children.length > 0) {
         elkGraph.children.forEach((child: any) => {
-          traverseNodes(child, undefined);
+          traverseNodes(child);
         });
       }
       return;
@@ -303,8 +303,9 @@ export function transformElkGraphToReactFlow(
       },
       sourcePosition: "right",
       targetPosition: "left",
-      parentNode: parentId,
-      extent: parentId ? "parent" : undefined,
+      // Remove parentNode and extent
+      // parentNode: parentId,
+      // extent: parentId ? "parent" : undefined,
     };
 
     if (!nodeIds.has(id)) {
@@ -314,7 +315,7 @@ export function transformElkGraphToReactFlow(
 
     if (elkNode.children && elkNode.children.length > 0) {
       elkNode.children.forEach((child: any) => {
-        traverseNodes(child, id);
+        traverseNodes(child);
       });
     }
   }
