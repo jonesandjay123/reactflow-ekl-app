@@ -1,27 +1,14 @@
 import React from "react";
 import { EdgeProps } from "reactflow";
 
-const CustomEdge = ({
-  id,
-  sourceX,
-  sourceY,
-  targetX,
-  targetY,
-  style = {},
-  data,
-  markerEnd,
-}: EdgeProps) => {
-  let { points, _label } = data;
+const CustomEdge = ({ id, data, style = {}, markerEnd }: EdgeProps) => {
+  const { points, label } = data;
 
   if (!points || points.length === 0) {
-    // if no points are provided, calculate a straight line
-    points = [
-      { x: sourceX, y: sourceY },
-      { x: targetX, y: targetY },
-    ];
+    return null;
   }
 
-  // construct the path data
+  // 構建路徑字符串
   let pathData = `M ${points[0].x} ${points[0].y}`;
   for (let i = 1; i < points.length; i++) {
     pathData += ` L ${points[i].x} ${points[i].y}`;
@@ -29,16 +16,28 @@ const CustomEdge = ({
 
   return (
     <>
+      <defs>
+        <marker
+          id="arrowhead"
+          markerWidth="5"
+          markerHeight="3.5"
+          refX="4"
+          refY="1.75"
+          orient="auto"
+        >
+          <polygon points="0 0, 5 1.75, 0 3.5" fill="#fff" />
+        </marker>
+      </defs>
       <path
         id={id}
         style={{
-          stroke: "#fff", // default color
+          stroke: "#fff", // 邊的顏色設為白色
           strokeWidth: style.strokeWidth || 2,
           fill: "none",
           pointerEvents: "visibleStroke",
         }}
         d={pathData}
-        markerEnd={markerEnd}
+        markerEnd="url(#arrowhead)" // 添加箭頭
       />
     </>
   );
