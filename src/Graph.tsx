@@ -12,7 +12,7 @@ import { parseJsonData, transformElkGraphToReactFlow } from "./graphUtils";
 import styled, { ThemeProvider } from "styled-components";
 import { darkTheme } from "./theme";
 
-import { parseGraph } from "./parseGraph";
+// import { parseGraph } from "./parseGraph";
 
 const elk = new ELK();
 
@@ -54,17 +54,9 @@ const Graph: React.FC = () => {
     });
   };
 
-  const onNodeDragStop = (event: any, node: any) => {
-    setNodes((nds) =>
-      nds.map((n) => (n.id === node.id ? { ...n, position: node.position } : n))
-    );
-  };
-
   useEffect(() => {
-    const simplifiedJsonData = parseGraph(jsonData);
-
-    // 打印结果
-    console.log(JSON.stringify(simplifiedJsonData, null, 2));
+    // const simplifiedJsonData = parseGraph(jsonData);
+    // console.log(JSON.stringify(simplifiedJsonData, null, 2));
 
     async function buildGraph() {
       const elkGraph = parseJsonData(jsonData, expandedNodes);
@@ -93,7 +85,6 @@ const Graph: React.FC = () => {
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             fitView
-            onNodeDragStop={onNodeDragStop}
           >
             <Background />
           </ReactFlowStyled>

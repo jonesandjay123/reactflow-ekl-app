@@ -231,7 +231,6 @@ export function parseJsonData(
       "elk.direction": jsonData.arrange === "LR" ? "RIGHT" : "DOWN",
       "spacing.edgeLabel": "10.0",
       "elk.core.options.EdgeLabelPlacement": "CENTER",
-      // additional layout options can be added here
       algorithm: "layered",
       "layering.strategy": "INTERACTIVE",
       "crossingMinimization.semiInteractive": "true",
@@ -241,6 +240,7 @@ export function parseJsonData(
       "spacing.edgeNode": "10.0",
       "spacing.edgeEdge": "10.0",
       "spacing.nodeNode": "20.0",
+      "elk.edgeRouting": "ORTHOGONAL", // POLYLINE
     },
 
     children: nodes,
@@ -303,12 +303,9 @@ export function transformElkGraphToReactFlow(
       },
       sourcePosition: "right",
       targetPosition: "left",
+      parentNode: parentId,
+      extent: parentId ? "parent" : undefined,
     };
-
-    if (parentId) {
-      node.parentNode = parentId;
-      node.extent = "parent";
-    }
 
     if (!nodeIds.has(id)) {
       nodes.push(node);
@@ -331,6 +328,17 @@ export function transformElkGraphToReactFlow(
         const targetId = elkEdge.targets[0];
         if (nodeIds.has(sourceId) && nodeIds.has(targetId)) {
           if (!edges.find((e) => e.id === elkEdge.id)) {
+            // Extract the edge points from the ELK edge
+            const sections = elkEdge.sections || [];
+            let points: { x: number; y: number }[] = [];
+            sections.forEach((section: any) => {
+              points.push(section.startPoint);
+              if (section.bendPoints) {
+                points = points.concat(section.bendPoints);
+              }
+              points.push(section.endPoint);
+            });
+
             edges.push({
               id: elkEdge.id,
               source: sourceId,
@@ -338,6 +346,7 @@ export function transformElkGraphToReactFlow(
               type: "custom",
               data: {
                 label: elkEdge.labels?.[0]?.text || "",
+                points, // pass the points to the edge
               },
               style: elkEdge.style,
             });
